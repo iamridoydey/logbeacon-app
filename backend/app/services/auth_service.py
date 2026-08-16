@@ -12,6 +12,12 @@ def create_user(username, email, password):
     api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
 
     try:
+        # Check whether the user already exist or not
+        registered = User.query.filter_by(username=username).first()
+
+        if registered:
+            return jsonify({"error": "User already exist"}), 409
+
         new_user = User(
             username=username,
             email=email,
@@ -30,6 +36,7 @@ def create_user(username, email, password):
 
     except Exception as error:
         db.session.rollback()
+        print(error)
         return jsonify({"error": str(error)}), 500
 
 
@@ -37,6 +44,8 @@ def create_user(username, email, password):
 # Signin user
 def signin_user(username, password):
     user = User.query.filter_by(username=username).first()
+
+    print(user)
 
     if not user or not check_password_hash(user.password_hash, password):
         return jsonify({"error": "Invalid username or password"}), 401
