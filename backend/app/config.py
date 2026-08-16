@@ -1,6 +1,8 @@
 import os
 from dotenv import load_dotenv
+
 load_dotenv()
+
 
 class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
@@ -11,3 +13,4 @@ class Config:
     GROQ_MODEL = os.environ.get("GROQ_MODEL")
     LOG_RETENTION_DAYS = int(os.environ.get("LOG_RETENTION_DAYS", 7))
     MAX_ERROR_LENGTH = int(os.environ.get("MAX_ERROR_LENGTH", 500))
+    PRICE_PER_MILLION_TOKENS = float(os.environ.get("PRICE_PER_MILLION_TOKENS", 0.05))
