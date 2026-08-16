@@ -3,6 +3,7 @@ from flask import Flask
 from app.config import Config
 from app.db import db
 from app.routes import register_routes
+from app.errors import register_error_handlers
 
 
 def create_app(test_config=None):
@@ -20,6 +21,9 @@ def create_app(test_config=None):
     # Allow tests to override normal configuration.
     if test_config:
         app.config.update(test_config)
+
+    # Register error handlers
+    register_error_handlers(app)
 
     # Connect Flask-SQLAlchemy to this Flask application.
     db.init_app(app)
