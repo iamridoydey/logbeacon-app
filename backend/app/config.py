@@ -14,3 +14,8 @@ class Config:
     LOG_RETENTION_DAYS = int(os.environ.get("LOG_RETENTION_DAYS", 7))
     MAX_ERROR_LENGTH = int(os.environ.get("MAX_ERROR_LENGTH", 500))
     PRICE_PER_MILLION_TOKENS = float(os.environ.get("PRICE_PER_MILLION_TOKENS", 0.05))
+    SMTP_HOST = os.environ.get("SMTP_HOST")
+    SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
+    SMTP_USER = os.environ.get("SMTP_USER")
+    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
+    FROM_EMAIL = os.environ.get("FROM_EMAIL")
