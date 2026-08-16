@@ -3,6 +3,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
 import hashlib
 from app.db import db
+from app.repositories import user_repository
 from app.models import User
 
 
@@ -13,7 +14,7 @@ def create_user(username, email, password):
 
     try:
         # Check whether the user already exist or not
-        registered = User.query.filter_by(username=username).first()
+        registered = user_repository.find_by_username(username)
 
         if registered:
             return jsonify({"error": "User already exist"}), 409
@@ -25,8 +26,7 @@ def create_user(username, email, password):
             api_key_hash=api_key_hash
         )
 
-        db.session.add(new_user)
-        db.session.commit()
+        user_repository.save(new_user)
 
 
         return jsonify({
@@ -35,7 +35,7 @@ def create_user(username, email, password):
         }), 201
 
     except Exception as error:
-        db.session.rollback()
+        user_repository.rollback()
         print(error)
         return jsonify({"error": str(error)}), 500
 
@@ -43,7 +43,7 @@ def create_user(username, email, password):
 
 # Signin user
 def signin_user(username, password):
-    user = User.query.filter_by(username=username).first()
+    user = user_repository.find_by_username(username)
 
     print(user)
 

@@ -1,5 +1,6 @@
 from flask import jsonify
 from app.db import db
+from app.repositories import log_repository
 from app.models import Log
 
 
@@ -12,8 +13,7 @@ def create_log(user_id, error_log, error_solution):
             error_solution=error_solution
         )
 
-        db.session.add(new_log)
-        db.session.commit()
+        log_repository.save(new_log)
 
         return jsonify({
             "id": new_log.id,
@@ -23,14 +23,14 @@ def create_log(user_id, error_log, error_solution):
         }), 201
 
     except Exception as error:
-        db.session.rollback()
+        log_repository.rollback()
         return jsonify({"error": str(error)}), 500
 
 
 
 # Get all logs from database
 def get_user_logs(user_id):
-    logs = Log.query.filter_by(user_id=user_id).order_by(Log.created_at.desc()).all()
+    logs = log_repository.find_all_by_user(user_id)
 
     result = [
         {

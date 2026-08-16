@@ -2,6 +2,7 @@ import time
 from flask import jsonify
 from app.db import db
 from app.models import Log, Analysis
+from app.repositories import log_repository, analysis_repository
 from app.services.groq_service import ask_groq
 from app.services.pricing_service import calculate_cost
 
@@ -30,8 +31,8 @@ def analyze_error(user_id, error_log):
             error_log=error_log,
             error_solution=error_solution
         )
-        db.session.add(new_log)
-        db.session.flush()  # assigns new_log.id without committing yet
+
+        log_repository.save(new_log)
 
         new_analysis = Analysis(
             log_id=new_log.id,
@@ -41,8 +42,8 @@ def analyze_error(user_id, error_log):
             cost=cost,
             status=True
         )
-        db.session.add(new_analysis)
-        db.session.commit()  # both rows saved together, or neither
+
+        analysis_repository.save(new_analysis)
 
         return jsonify({
             "message": "Successfully completed the analysis",
@@ -55,5 +56,5 @@ def analyze_error(user_id, error_log):
         }), 201
 
     except Exception as error:
-        db.session.rollback()
+        analysis_repository.rollback()
         return jsonify({"error": str(error)}), 500
