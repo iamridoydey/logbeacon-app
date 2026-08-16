@@ -3,6 +3,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
 import hashlib
 from app.db import db
+from app.errors import AppError, ConflictError, AuthenticationError
 from app.repositories import user_repository
 from app.models import User
 
@@ -17,7 +18,7 @@ def create_user(username, email, password):
         registered = user_repository.find_by_username(username)
 
         if registered:
-            return jsonify({"error": "User already exist"}), 409
+            raise ConflictError("User already exist")
 
         new_user = User(
             username=username,
@@ -37,7 +38,7 @@ def create_user(username, email, password):
     except Exception as error:
         user_repository.rollback()
         print(error)
-        return jsonify({"error": str(error)}), 500
+        raise
 
 
 
@@ -48,10 +49,10 @@ def signin_user(username, password):
     print(user)
 
     if not user or not check_password_hash(user.password_hash, password):
-        return jsonify({"error": "Invalid username or password"}), 401
+        raise AuthenticationError("Invalid username or password")
 
     if not user.is_active:
-        return jsonify({"error": "Account is disabled"}), 403
+        raise AppError("Account is disabled", 403)
 
     session['user_id'] = user.id
 

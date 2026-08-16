@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from app.errors import ValidationError
 from app.services import auth_service
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
@@ -10,14 +11,14 @@ def register():
     data = request.get_json()
     print(data)
     if not data:
-        return jsonify({"error": "Missing or invalid JSON format"}), 400
-
+        raise ValidationError("Missing or invalid JSON format")
+    
     username = data.get('username')
     email = data.get('email')
     password = data.get('password')
 
     if not username or not email or not password:
-        return jsonify({"error": "Missing one of username/email/password"}), 400
+        raise ValidationError("Missing one of username/email/password")
 
     return auth_service.create_user(username, email, password)
 
@@ -28,13 +29,13 @@ def signin():
     data = request.get_json()
 
     if not data:
-        return jsonify({"error": "Missing or invalid JSON format"}), 400
+        raise ValidationError("Missing or invalid JSON format")
 
     username = data.get('username')
     password = data.get('password')
 
     if not username or not password:
-        return jsonify({"error": "Missing username or password"}), 400
+        raise ValidationError("Missing username or password")
 
     return auth_service.signin_user(username, password)
 

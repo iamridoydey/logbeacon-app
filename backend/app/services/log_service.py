@@ -24,7 +24,7 @@ def create_log(user_id, error_log, error_solution):
 
     except Exception as error:
         log_repository.rollback()
-        return jsonify({"error": str(error)}), 500
+        raise
 
 
 
