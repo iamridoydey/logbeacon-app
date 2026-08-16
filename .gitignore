@@ -1,0 +1,76 @@
+# ============================
+# Python (backend/)
+# ============================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Flask instance folder / local DB fallback
+instance/
+*.db
+*.sqlite3
+
+# Alembic — keep migration scripts, ignore nothing extra
+# (versions/ should be committed, not ignored)
+
+# ============================
+# Node / Express (frontend/)
+# ============================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+build/
+.npm/
+.eslintcache
+
+# ============================
+# Environment / secrets — applies to both backend/ and frontend/
+# ============================
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# ============================
+# Docker
+# ============================
+*.pid
+docker-compose.override.yml
+
+# ============================
+# OS files
+# ============================
+.DS_Store
+Thumbs.db
+
+# ============================
+# Editor / IDE
+# ============================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ============================
+# Logs
+# ============================
+*.log
+logs/
+
+
+diagrams
+docs
+frontend
