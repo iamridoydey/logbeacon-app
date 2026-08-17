@@ -1,0 +1,24 @@
+<div class="max-w-xl mx-auto text-center">
+  <h1 class="text-4xl font-semibold text-text leading-tight">
+    Paste an error.<br>Get a fix.
+  </h1>
+  <p class="mt-4 text-muted text-lg">
+    LogBeacon reads your stack trace and explains what went wrong — in plain English, powered by an LLM.
+  </p>
+  <a href="<%= isSignedIn ? '/analyze' : '/auth/register' %>"
+     class="inline-block mt-8 bg-accent hover:bg-accent-hover text-bg font-medium px-6 py-3 rounded-md transition-colors">
+    Get started
+  </a>
+</div>
+
+<div class="max-w-xl mx-auto mt-14 bg-surface border border-border rounded-lg overflow-hidden">
+  <div class="flex items-center gap-1.5 px-4 py-3 border-b border-border">
+    <span class="w-2.5 h-2.5 rounded-full bg-danger/60"></span>
+    <span class="w-2.5 h-2.5 rounded-full bg-accent/60"></span>
+    <span class="w-2.5 h-2.5 rounded-full bg-teal/60"></span>
+  </div>
+  <div class="p-5 font-mono text-sm space-y-3">
+    <p class="text-danger">ImagePullBackOff: nginx:v1.99.9</p>
+    <p class="text-teal">→ Fix: tag doesn't exist. Use a valid nginx tag, e.g. 1.25.</p>
+  </div>
+</div>

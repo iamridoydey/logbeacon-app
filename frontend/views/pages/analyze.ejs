@@ -1,0 +1,75 @@
+<div class="max-w-3xl mx-auto flex flex-col min-h-[calc(100vh-8rem)] space-y-6">
+
+  <div id="entries-list" class="flex-1 space-y-6 pb-36 pt-4">
+    <div id="error-banner" class="border-l-4 border-danger bg-danger/10 px-4 py-3 rounded-md relative hidden">
+      <span class="text-danger text-xs font-bold tracking-wider">ERROR</span>
+      <p id="error-banner-text" class="text-danger mt-2 font-mono text-sm"></p>
+    </div>
+
+    <% if (entries && entries.length > 0) { %>
+      <% entries.forEach(function(entry) { %>
+
+        <div class="border-l-4 border-danger/70 bg-surface/50 px-4 py-3 rounded-md space-y-2 relative">
+          <div class="flex items-center justify-between">
+            <span class="text-danger text-xs font-bold tracking-wider">ERROR</span>
+            <span class="text-muted text-xs"><%= new Date(entry.created_at).toLocaleString() %></span>
+          </div>
+          <pre id="error-<%= entry.id %>" class="text-text/90 font-mono text-sm whitespace-pre-wrap wrap-break-words overflow-hidden"><%= entry.error_log %></pre>
+          <div class="flex justify-end">
+            <button type="button" onclick="copyToClipboard('error-<%= entry.id %>')"
+                    class="flex items-center gap-1 text-xs text-muted hover:text-accent transition-colors cursor-pointer">
+              Copy
+            </button>
+          </div>
+        </div>
+
+        <div class="border-l-4 border-teal bg-surface/50 px-4 py-3 rounded-md space-y-2 relative">
+          <div class="flex items-center justify-between">
+            <span class="text-teal text-xs font-bold tracking-wider">FIX</span>
+            <span class="text-muted text-xs">
+              <%= entry.input_tokens %> in / <%= entry.output_tokens %> out &middot; $<%= parseFloat(entry.cost).toFixed(6) %>
+            </span>
+          </div>
+          <div id="solution-<%= entry.id %>" class="prose max-w-none text-text/90 whitespace-pre-wrap wrap-break-words overflow-hidden">
+            <%- entry.error_solution_html %>
+          </div>
+          <div class="flex justify-end">
+            <button type="button" onclick="copyToClipboard('solution-<%= entry.id %>')"
+                    class="flex items-center gap-1 text-xs text-muted hover:text-accent transition-colors cursor-pointer">
+              Copy
+            </button>
+          </div>
+        </div>
+
+      <% }); %>
+    <% } %>
+
+    <div id="empty-state" class="text-center py-16 <%= entries && entries.length > 0 ? 'hidden' : '' %>">
+      <p class="text-muted text-sm font-sans">No errors analyzed yet — paste one below to get your first fix.</p>
+    </div>
+  </div>
+
+  <form id="analyze-form" class="sticky bottom-2">
+    <div class="bg-surface border border-border rounded-lg shadow-lg overflow-hidden focus-within:ring-2 focus-within:ring-accent">
+      <div class="flex items-start gap-3 px-4 py-3">
+        <span class="text-accent font-mono text-sm pt-2.5 select-none">$</span>
+        <textarea
+          id="error-log-input"
+          name="error_log"
+          rows="2"
+          required
+          placeholder="Paste your error log or stack trace here..."
+          class="flex-1 bg-transparent text-sm font-mono text-text placeholder-muted focus:outline-none resize-none py-2 overflow-hidden"
+          style="max-height: 40vh;"
+        ></textarea>
+      </div>
+      <div class="flex justify-end px-4 py-2.5 border-t border-border bg-bg/40">
+        <button id="analyze-submit" type="submit"
+                class="bg-accent hover:bg-accent-hover text-bg font-medium text-sm px-5 py-1.5 rounded-md transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60">
+          Analyze
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+<script src="/js/analyze.js" defer></script>

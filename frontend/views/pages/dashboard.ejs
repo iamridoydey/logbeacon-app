@@ -1,0 +1,54 @@
+<div class="max-w-3xl mx-auto">
+  <h1 class="text-2xl font-semibold text-text mb-8">Dashboard</h1>
+
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
+    <div class="bg-surface border border-border rounded-lg p-4">
+      <p class="text-xs text-muted mb-1">Total requests</p>
+      <p class="text-xl font-mono text-text"><%= summary.total_requests %></p>
+    </div>
+    <div class="bg-surface border border-border rounded-lg p-4">
+      <p class="text-xs text-muted mb-1">Total cost</p>
+      <p class="text-xl font-mono text-teal">$<%= summary.total_cost.toFixed(6) %></p>
+    </div>
+    <div class="bg-surface border border-border rounded-lg p-4">
+      <p class="text-xs text-muted mb-1">Input tokens</p>
+      <p class="text-xl font-mono text-accent"><%= summary.total_input_tokens.toLocaleString() %></p>
+    </div>
+    <div class="bg-surface border border-border rounded-lg p-4">
+      <p class="text-xs text-muted mb-1">Output tokens</p>
+      <p class="text-xl font-mono text-accent"><%= summary.total_output_tokens.toLocaleString() %></p>
+    </div>
+  </div>
+
+  <% if (entries.length === 0) { %>
+    <div class="bg-surface border border-border rounded-lg p-10 text-center">
+      <p class="text-muted">No requests yet.</p>
+      <a href="/analyze" class="inline-block mt-4 text-accent hover:text-accent-hover text-sm">Analyze your first error →</a>
+    </div>
+  <% } else { %>
+    <div class="bg-surface border border-border rounded-lg overflow-hidden">
+      <table class="w-full text-sm font-mono">
+        <thead>
+          <tr class="border-b border-border text-muted text-xs uppercase tracking-wide">
+            <th class="text-left px-4 py-3">Time</th>
+            <th class="text-right px-4 py-3">Input</th>
+            <th class="text-right px-4 py-3">Output</th>
+            <th class="text-right px-4 py-3">Latency</th>
+            <th class="text-right px-4 py-3">Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% entries.forEach(function(entry) { %>
+            <tr class="border-b border-border last:border-0">
+              <td class="px-4 py-3 text-muted"><%= new Date(entry.created_at).toLocaleString() %></td>
+              <td class="px-4 py-3 text-right text-accent"><%= entry.input_tokens %></td>
+              <td class="px-4 py-3 text-right text-accent"><%= entry.output_tokens %></td>
+              <td class="px-4 py-3 text-right text-muted"><%= entry.latency_ms %>ms</td>
+              <td class="px-4 py-3 text-right text-teal">$<%= parseFloat(entry.cost).toFixed(6) %></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
