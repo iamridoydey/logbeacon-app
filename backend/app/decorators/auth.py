@@ -3,6 +3,7 @@ import hashlib
 from functools import wraps
 from flask import g, session, request, jsonify
 from app.models import User
+from app.db import db
 
 
 def require_login(f):
@@ -13,7 +14,7 @@ def require_login(f):
         if not user_id:
             return jsonify({"error": "Authentication required"}), 401
 
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user or not user.is_active:
             return jsonify({"error": "Invalid or inactive user"}), 401
 
