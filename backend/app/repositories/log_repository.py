@@ -15,7 +15,7 @@ def find_all_by_user_with_analysis(user_id):
         db.session.query(Log, Analysis)
         .join(Analysis, Analysis.log_id == Log.id)
         .filter(Log.user_id == user_id)
-        .order_by(Log.created_at.desc())
+        .order_by(Log.created_at.asc())
         .all()
     )
 
