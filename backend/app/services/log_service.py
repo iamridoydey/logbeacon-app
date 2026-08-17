@@ -30,16 +30,32 @@ def create_log(user_id, error_log, error_solution):
 
 # Get all logs from database
 def get_user_logs(user_id):
-    logs = log_repository.find_all_by_user(user_id)
+    results = log_repository.find_all_by_user_with_analysis(user_id)
 
-    result = [
-        {
+    entries = []
+    total_cost = 0
+    total_input_tokens = 0
+    total_output_tokens = 0
+
+    for log, analysis in results:
+        entries.append({
             "id": log.id,
-            "error_log": log.error_log,
-            "error_solution": log.error_solution,
-            "created_at": log.created_at
-        }
-        for log in logs
-    ]
+            "created_at": log.created_at,
+            "input_tokens": analysis.input_tokens,
+            "output_tokens": analysis.output_tokens,
+            "latency_ms": analysis.latency,
+            "cost": str(analysis.cost),
+        })
+        total_cost += float(analysis.cost)
+        total_input_tokens += analysis.input_tokens
+        total_output_tokens += analysis.output_tokens
 
-    return jsonify(result), 200
+    return jsonify({
+        "entries": entries,
+        "summary": {
+            "total_requests": len(entries),
+            "total_cost": round(total_cost, 6),
+            "total_input_tokens": total_input_tokens,
+            "total_output_tokens": total_output_tokens,
+        }
+    }), 200
