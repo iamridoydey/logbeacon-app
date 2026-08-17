@@ -25,6 +25,14 @@ def save(log):
     return log
 
 
+def find_logs_older_than(cutoff_date):
+    return Log.query.filter(Log.created_at <= cutoff_date).all()
+
+
+def delete(log):
+    db.session.delete(log)
+    db.session.commit()
+
 def commit():
     db.session.commit()
 

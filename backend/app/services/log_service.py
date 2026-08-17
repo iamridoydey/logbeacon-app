@@ -12,8 +12,9 @@ def create_log(user_id, error_log, error_solution):
             error_log=error_log,
             error_solution=error_solution
         )
-
+        
         log_repository.save(new_log)
+        log_repository.commit()
 
         return jsonify({
             "id": new_log.id,
@@ -24,16 +25,15 @@ def create_log(user_id, error_log, error_solution):
 
     except Exception as error:
         log_repository.rollback()
-        raise
-
-
+        return jsonify({"error": str(error)}), 500
+    
 
 # Get all logs from database
 def get_user_logs(user_id):
     results = log_repository.find_all_by_user_with_analysis(user_id)
 
     entries = []
-    total_cost = 0
+    total_cost = 0.0
     total_input_tokens = 0
     total_output_tokens = 0
 
@@ -41,6 +41,8 @@ def get_user_logs(user_id):
         entries.append({
             "id": log.id,
             "created_at": log.created_at,
+            "error_log": log.error_log,
+            "error_solution": log.error_solution,
             "input_tokens": analysis.input_tokens,
             "output_tokens": analysis.output_tokens,
             "latency_ms": analysis.latency,
