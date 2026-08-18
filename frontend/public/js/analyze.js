@@ -58,7 +58,7 @@ function autoGrow(textarea) {
 }
 
 // --- Typewriter reveal for freshly-received HTML, preserving real tags (no broken mid-tag typing) ---
-function typeWriterHtml(container, html, speed = 12) {
+function typeWriterHtml(container, html, speed=24) {
     const tokens = html.split(/(<[^>]+>)/g).filter(Boolean);
     let tokenIndex = 0, charIndex = 0;
 
