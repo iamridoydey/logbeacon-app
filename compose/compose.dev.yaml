@@ -1,0 +1,26 @@
+include:
+  - compose.app.yaml
+
+services:
+  frontend:
+    build:
+      context: ../frontend
+      target: builder
+    command: npm run dev
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+
+  backend:
+    build:
+      context: ../backend
+      target: builder
+    command: flask run --host=0.0.0.0 --debug
+    volumes:
+      - ../backend:/app
+      - /app/.venv
+
+networks:
+  logbeacon:
+    driver: bridge
+    name: logbeacon
