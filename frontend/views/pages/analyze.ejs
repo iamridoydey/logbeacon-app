@@ -1,10 +1,8 @@
+<div id="toast-container" class="fixed top-50 right-4 z-50 flex flex-col gap-2"></div>
+
 <div class="max-w-3xl mx-auto flex flex-col min-h-[calc(100vh-8rem)] space-y-6">
 
   <div id="entries-list" class="flex-1 space-y-6 pb-36 pt-4">
-    <div id="error-banner" class="border-l-4 border-danger bg-danger/10 px-4 py-3 rounded-md relative hidden">
-      <span class="text-danger text-xs font-bold tracking-wider">ERROR</span>
-      <p id="error-banner-text" class="text-danger mt-2 font-mono text-sm"></p>
-    </div>
 
     <% if (entries && entries.length > 0) { %>
       <% entries.forEach(function(entry) { %>

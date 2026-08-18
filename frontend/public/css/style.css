@@ -195,6 +195,9 @@
   }
 }
 @layer utilities {
+  .fixed {
+    position: fixed;
+  }
   .relative {
     position: relative;
   }
@@ -203,6 +206,18 @@
   }
   .top-0 {
     top: 0px;
+  }
+  .top-4 {
+    top: calc(var(--spacing) * 4);
+  }
+  .top-50 {
+    top: calc(var(--spacing) * 50);
+  }
+  .right-4 {
+    right: calc(var(--spacing) * 4);
+  }
+  .right-50 {
+    right: calc(var(--spacing) * 50);
   }
   .bottom-2 {
     bottom: calc(var(--spacing) * 2);
@@ -291,9 +306,6 @@
   .h-2\.5 {
     height: calc(var(--spacing) * 2.5);
   }
-  .h-4 {
-    height: calc(var(--spacing) * 4);
-  }
   .min-h-\[calc\(100vh-8rem\)\] {
     min-height: calc(100vh - 8rem);
   }
@@ -305,9 +317,6 @@
   }
   .w-2\.5 {
     width: calc(var(--spacing) * 2.5);
-  }
-  .w-4 {
-    width: calc(var(--spacing) * 4);
   }
   .w-full {
     width: 100%;
@@ -375,6 +384,9 @@
   }
   .gap-1\.5 {
     gap: calc(var(--spacing) * 1.5);
+  }
+  .gap-2 {
+    gap: calc(var(--spacing) * 2);
   }
   .gap-3 {
     gap: calc(var(--spacing) * 3);
