@@ -13,7 +13,7 @@ services:
     restart: unless-stopped
     networks:
       - logbeacon
-    command: npm run start
+    command: sh -c "npm run build:css && npm run start"
 
   backend:
     container_name: logbeacon_backend
@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
     networks:
       - logbeacon
-    command: flask run
+    command: sh -c "alembic upgrade head && flask run --host=0.0.0.0"
 
   redis:
     image: redis:8.0-alpine
