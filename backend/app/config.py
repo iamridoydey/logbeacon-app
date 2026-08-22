@@ -5,6 +5,7 @@ load_dotenv()
 
 
 class Config:
+    ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "").split(",")
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
     SQLALCHEMY_TRACK_MODIFICATIONS = os.environ.get("SQLALCHEMY_TRACK_MODIFICATIONS")
     REDIS_URL = os.environ.get("REDIS_URL")

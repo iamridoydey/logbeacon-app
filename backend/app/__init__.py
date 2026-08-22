@@ -4,6 +4,7 @@ from app.config import Config
 from app.db import db
 from app.routes import register_routes
 from app.errors import register_error_handlers
+from flask_cors import CORS
 
 
 def create_app(test_config=None):
@@ -17,6 +18,14 @@ def create_app(test_config=None):
 
     # Load the default application configuration.
     app.config.from_object(Config)
+
+    CORS(
+        app,
+        resources={r"/analyze": {"origins": app.config["ALLOWED_ORIGINS"]}},
+        supports_credentials=False,
+    )
+
+    
 
     # Allow tests to override normal configuration.
     if test_config:
