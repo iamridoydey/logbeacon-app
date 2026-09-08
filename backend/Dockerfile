@@ -11,10 +11,10 @@ RUN python -m venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Install dependencies
-COPY requirements.txt .
+COPY requirements-prod.txt .
 
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements-prod.txt
 
 
 # ==========================================
