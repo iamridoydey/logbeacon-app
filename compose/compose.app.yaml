@@ -1,0 +1,75 @@
+services:
+  frontend:
+    container_name: logbeacon_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=${PORT}
+      - FLASK_API_URL=http://backend:5000
+      - SESSION_SECRET=${SESSION_SECRET}
+    depends_on:
+      - db
+      - backend
+    restart: unless-stopped
+    networks:
+      - logbeacon
+    command: sh -c "npm run build:css && npm run start"
+
+  backend:
+    container_name: logbeacon_backend
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db/${POSTGRES_DB}
+      - SQLALCHEMY_TRACK_MODIFICATIONS=${SQLALCHEMY_TRACK_MODIFICATIONS}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_MODEL=${GROQ_MODEL}
+      - CHAT_RETENTION_DAYS=${CHAT_RETENTION_DAYS}
+      - MAX_ERROR_LENGTH=${MAX_ERROR_LENGTH}
+      - PRICE_PER_MILLION_TOKENS=${PRICE_PER_MILLION_TOKENS}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - FROM_EMAIL=${FROM_EMAIL}
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+    networks:
+      - logbeacon
+    command: sh -c "alembic upgrade head && flask run --host=0.0.0.0"
+
+  redis:
+    image: redis:8.0-alpine
+    container_name: redis_server
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - logbeacon
+
+  db:
+    container_name: logbeacon_db
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - logbeacon
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+  redis_data:
