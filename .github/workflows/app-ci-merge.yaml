@@ -1,0 +1,64 @@
+name: App main release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  release:
+    name: Build, scan, tag, and push images
+    runs-on: ubuntu-latest
+    environment: app-release-production
+
+    strategy:
+      matrix:
+        include:
+          - service: frontend
+            ecr_repo: logbeacon/frontend
+          - service: backend
+            ecr_repo: logbeacon/backend
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate version tag
+        id: version
+        run: echo "tag=$(git rev-parse --short HEAD)-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build ${{ matrix.service }} image
+        run: |
+          docker build \
+            -t logbeacon-${{ matrix.service }}:${{ steps.version.outputs.tag }} \
+            ./${{ matrix.service }}
+
+      - name: Trivy image scan — ${{ matrix.service }}
+        uses: aquasecurity/trivy-action@v0.20.0
+        with:
+          image-ref: logbeacon-${{ matrix.service }}:${{ steps.version.outputs.tag }}
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: "${{ vars.AWS_REGION }}"
+          role-to-assume: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/logbeacon-app-ci-role"
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Tag and push ${{ matrix.service }} image
+        run: |
+          IMAGE_URI="${{ steps.ecr-login.outputs.registry }}/${{ matrix.ecr_repo }}:${{ steps.version.outputs.tag }}"
+          docker tag logbeacon-${{ matrix.service }}:${{ steps.version.outputs.tag }} "$IMAGE_URI"
+          docker push "$IMAGE_URI"
