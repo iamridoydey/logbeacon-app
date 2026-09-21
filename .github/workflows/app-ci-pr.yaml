@@ -51,7 +51,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        run: npm ci
+        run: npm install
 
       - name: Frontend test
         working-directory: frontend
@@ -137,6 +137,9 @@ jobs:
 
   aws-auth-build-scan-images:
     runs-on: ubuntu-latest
+    needs: 
+      - frontend-checks
+      - backend-checks
     steps:
       - name: Checkout main
         uses: actions/checkout@v7
