@@ -103,9 +103,9 @@ jobs:
           sarif_file: "trivy-backend-results.sarif"
 
       - name: Setup Python
-        uses: actions/setup-python@v7 
+        uses: actions/setup-python@v5
         with:
-          python-version: 'pypy3.12' 
+          python-version: 'pypy-3.12'
 
       - name: Install dependencies
         working-directory: backend
