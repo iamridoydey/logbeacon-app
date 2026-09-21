@@ -1,5 +1,6 @@
 from app.db import db
 
+
 class Analysis(db.Model):
     __tablename__ = 'analysis'
 

@@ -1,5 +1,7 @@
 from sqlalchemy.sql import func
+
 from app.db import db
+
 
 class Log(db.Model):
     __tablename__ = 'logs'

@@ -1,8 +1,8 @@
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, g, jsonify, request
+
+from app.config import Config
 from app.decorators import require_login
 from app.services import log_service
-from app.config import Config
-
 
 bp = Blueprint('log', __name__, url_prefix='/log')
 

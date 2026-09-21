@@ -1,4 +1,7 @@
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from app.jobs.send_expiry_email import send_expiry_email
 
 
@@ -39,12 +42,9 @@ def test_log_survives_when_send_fails(mock_send, mock_user_repo, mock_log_repo, 
     fake_user = MagicMock(id=5, email="test@example.com")
     mock_log_repo.find_by_id.return_value = fake_log
     mock_user_repo.find_by_id.return_value = fake_user
-    mock_send.side_effect = Exception("SMTP down")
+    mock_send.side_effect = RuntimeError("SMTP down")
 
-    with app.app_context():
-        try:
-            send_expiry_email(1)
-        except Exception:
-            pass
+    with app.app_context(), pytest.raises(RuntimeError):
+        send_expiry_email(1)
 
     mock_log_repo.delete.assert_not_called()

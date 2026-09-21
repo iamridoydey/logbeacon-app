@@ -1,7 +1,8 @@
-from app.routes.auth import bp as auth_bp
 from app.routes.analyze import bp as analyze_bp
-from app.routes.log import bp as log_bp
+from app.routes.auth import bp as auth_bp
 from app.routes.health import bp as health_bp
+from app.routes.log import bp as log_bp
+
 
 def register_routes(app):
     """

@@ -1,8 +1,9 @@
-from flask import Blueprint, request, jsonify, g
-from app.decorators import require_login_or_api_key
-from app.services import analyze_service
-from app.errors import ValidationError
+from flask import Blueprint, g, request
+
 from app.config import Config
+from app.decorators import require_login_or_api_key
+from app.errors import ValidationError
+from app.services import analyze_service
 
 bp = Blueprint('analyze', __name__, url_prefix='/analyze')
 

@@ -1,10 +1,10 @@
 from flask import Flask
+from flask_cors import CORS
 
 from app.config import Config
 from app.db import db
-from app.routes import register_routes
 from app.errors import register_error_handlers
-from flask_cors import CORS
+from app.routes import register_routes
 
 
 def create_app(test_config=None):
@@ -37,9 +37,6 @@ def create_app(test_config=None):
     # Connect Flask-SQLAlchemy to this Flask application.
     db.init_app(app)
 
-    # Registration of the models
-    with app.app_context():
-        from app import models 
 
     """
     Provide the app to register the blueprint

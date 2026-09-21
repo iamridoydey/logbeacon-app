@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta, timezone
+
 from app import create_app
 from app.config import Config
-from app.repositories import log_repository
-from app.queue import queue
 from app.jobs.send_expiry_email import send_expiry_email
+from app.queue import queue
+from app.repositories import log_repository
 
 
 def run_cleanup():

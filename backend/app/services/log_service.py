@@ -1,7 +1,8 @@
 from flask import jsonify
-from app.db import db
-from app.repositories import log_repository
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.models import Log
+from app.repositories import log_repository
 
 
 # Create log record in database
@@ -23,7 +24,7 @@ def create_log(user_id, error_log, error_solution):
             "created_at": new_log.created_at
         }), 201
 
-    except Exception as error:
+    except SQLAlchemyError as error:
         log_repository.rollback()
         return jsonify({"error": str(error)}), 500
     

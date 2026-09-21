@@ -1,11 +1,12 @@
-from flask import jsonify, session
-from werkzeug.security import generate_password_hash, check_password_hash
-import secrets
 import hashlib
-from app.db import db
-from app.errors import AppError, ConflictError, AuthenticationError
-from app.repositories import user_repository
+import secrets
+
+from flask import jsonify, session
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from app.errors import AppError, AuthenticationError, ConflictError
 from app.models import User
+from app.repositories import user_repository
 
 
 # Create user account

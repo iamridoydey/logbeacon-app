@@ -1,6 +1,8 @@
 import pytest
+
 from app import create_app
 from app.db import db as _db
+
 
 # Setting up the environment for testing
 @pytest.fixture(scope="function")
