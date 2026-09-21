@@ -155,7 +155,7 @@ jobs:
         with:
           sarif_file: checkov-backend-results.sarif
 
-  aws-auth-build-scan-images:
+  build-and-scan-images:
     runs-on: ubuntu-latest
     needs:
       - frontend-checks
