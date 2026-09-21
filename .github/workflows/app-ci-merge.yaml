@@ -1,4 +1,4 @@
-name: App main release
+name: App release ci
 
 on:
   push:
@@ -9,56 +9,89 @@ permissions:
   contents: read
   id-token: write
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  release:
-    name: Build, scan, tag, and push images
+  release-images:
     runs-on: ubuntu-latest
-    environment: app-release-production
-
-    strategy:
-      matrix:
-        include:
-          - service: frontend
-            ecr_repo: logbeacon/frontend
-          - service: backend
-            ecr_repo: logbeacon/backend
-
     steps:
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Generate version tag
-        id: version
-        run: echo "tag=$(git rev-parse --short HEAD)-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
-
-      - name: Build ${{ matrix.service }} image
-        run: |
-          docker build \
-            -t logbeacon-${{ matrix.service }}:${{ steps.version.outputs.tag }} \
-            ./${{ matrix.service }}
-
-      - name: Trivy image scan — ${{ matrix.service }}
-        uses: aquasecurity/trivy-action@v0.20.0
-        with:
-          image-ref: logbeacon-${{ matrix.service }}:${{ steps.version.outputs.tag }}
-          format: table
-          exit-code: "1"
-          severity: CRITICAL,HIGH
+      - name: Set SHA_SHORT
+        run: echo "SHA_SHORT=$(git rev-parse --short $GITHUB_SHA)" >> $GITHUB_ENV
 
       - name: Configure AWS
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
-          aws-region: "${{ vars.AWS_REGION }}"
-          role-to-assume: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/logbeacon-app-ci-role"
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/logbeacon-app-ci-role
 
       - name: Login to ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Tag and push ${{ matrix.service }} image
+      # -----------------------------------------------------------
+      # Rebuilds from `main` directly, matching the diagram's Main
+      # Release Pipeline (Checkout Main -> Build -> Trivy -> ECR
+      # push). This replaces the previous artifact-download approach,
+      # which could never succeed: GitHub Actions artifacts are
+      # scoped to the workflow run that created them, and this
+      # push-triggered run is always a separate run from whatever PR
+      # built and uploaded frontend-image/backend-image.
+      # -----------------------------------------------------------
+
+      # --- Frontend ---
+      - name: Build frontend image
         run: |
-          IMAGE_URI="${{ steps.ecr-login.outputs.registry }}/${{ matrix.ecr_repo }}:${{ steps.version.outputs.tag }}"
-          docker tag logbeacon-${{ matrix.service }}:${{ steps.version.outputs.tag }} "$IMAGE_URI"
+          docker build \
+            --platform linux/amd64 \
+            -t logbeacon-frontend:${{ env.SHA_SHORT }} \
+            logbeacon-app/frontend
+
+      - name: Trivy scan frontend
+        uses: aquasecurity/trivy-action@v0.20.0
+        with:
+          image-ref: logbeacon-frontend:${{ env.SHA_SHORT }}
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+
+      # NOTE: image path below uses the hyphenated form
+      # (logbeacon-frontend), matching the local build tag. Your ECR
+      # repos may actually be named with a slash (logbeacon/frontend)
+      # instead — this was flagged as an unresolved naming question
+      # earlier in the project and still needs confirming against
+      # `aws ecr describe-repositories`. Swap the path below if so.
+      - name: Tag and push frontend image
+        run: |
+          IMAGE_URI="${{ steps.ecr-login.outputs.registry }}/logbeacon-frontend:${{ env.SHA_SHORT }}"
+          docker tag logbeacon-frontend:${{ env.SHA_SHORT }} "$IMAGE_URI"
           docker push "$IMAGE_URI"
+
+      # --- Backend ---
+      - name: Build backend image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -t logbeacon-backend:${{ env.SHA_SHORT }} \
+            logbeacon-app/backend
+
+      - name: Trivy scan backend
+        uses: aquasecurity/trivy-action@v0.20.0
+        with:
+          image-ref: logbeacon-backend:${{ env.SHA_SHORT }}
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+
+      - name: Tag and push backend image
+        run: |
+          IMAGE_URI="${{ steps.ecr-login.outputs.registry }}/logbeacon-backend:${{ env.SHA_SHORT }}"
+          docker tag logbeacon-backend:${{ env.SHA_SHORT }} "$IMAGE_URI"
+          docker push "$IMAGE_URI"
+
