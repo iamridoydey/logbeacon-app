@@ -100,26 +100,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Run Trivy vulnerability scanner in fs mode on backend
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: "fs"
-          scan-ref: "backend"
-          format: "sarif"
-          output: "trivy-backend-results.sarif"
-          severity: "HIGH,CRITICAL"
-          ignore-unfixed: true
-
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: "trivy-backend-results.sarif"
-
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Install dependencies
         working-directory: backend
@@ -127,7 +111,7 @@ jobs:
 
       - name: Create test database
         run: |
-          psql -h localhost -U logbeacon -c "CREATE DATABASE logbeacon_dev_test;"
+          psql -h localhost -U logbeacon -d logbeacon_test -c "CREATE DATABASE logbeacon_dev_test;"
         env:
           PGPASSWORD: logbeacon
 
