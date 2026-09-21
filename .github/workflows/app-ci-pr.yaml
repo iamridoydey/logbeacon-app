@@ -125,13 +125,19 @@ jobs:
         working-directory: backend
         run: pip install -r requirements.txt
 
+      - name: Create test database
+        run: |
+          psql -h localhost -U logbeacon -c "CREATE DATABASE logbeacon_dev_test;"
+        env:
+          PGPASSWORD: logbeacon
+
       - name: Backend test
         working-directory: backend
         env:
           GROQ_API_KEY: test-groq-api-key
           GROQ_MODEL: test-groq-model
           ALLOWED_ORIGINS: test-allowed-origins
-          DATABASE_URL: "postgresql://logbeacon:logbeacon@localhost:5432/logbeacon_test"
+          DATABASE_URL: "postgresql://logbeacon:logbeacon@localhost:5432/logbeacon_dev_test"
           SQLALCHEMY_TRACK_MODIFICATIONS: False
           REDIS_URL: "redis://localhost:6379/0"
           SECRET_KEY: "test-secret-key"
