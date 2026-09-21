@@ -113,11 +113,14 @@ jobs:
 
       - name: Backend test
         working-directory: backend
+        env:
+          GROQ_API_KEY: "test-api-key"
+          GROQ_MODEL: "test-model"
         run: pytest
 
       - name: Backend lint
         working-directory: backend
-        run: flake8 .
+        run: ruff check .
 
       - name: Checkov Backend Dockerfile Scan
         id: checkov-backend
