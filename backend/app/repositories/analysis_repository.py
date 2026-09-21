@@ -1,5 +1,5 @@
-from app.models import Analysis
 from app.db import db
+from app.models import Analysis
 
 
 def find_by_log_id(log_id):

@@ -1,8 +1,11 @@
 import time
+
 from flask import jsonify
-from app.models import Log, Analysis
-from app.repositories import log_repository, analysis_repository
-from app.errors import ValidationError, ExternalServiceError
+from requests.exceptions import RequestException
+
+from app.errors import ExternalServiceError, ValidationError
+from app.models import Analysis, Log
+from app.repositories import analysis_repository, log_repository
 from app.services.groq_service import ask_groq
 from app.services.pricing_service import calculate_cost
 
@@ -15,8 +18,8 @@ def analyze_error(user_id, error_log):
 
     try:
         solution = ask_groq(error_log)
-    except Exception as error:
-        raise ExternalServiceError(f"LLM call failed: {str(error)}")
+    except RequestException as error:
+        raise ExternalServiceError(f"LLM call failed: {error!s}")
 
     latency_ms = int((time.perf_counter() - start_time) * 1000)
 
@@ -54,6 +57,6 @@ def analyze_error(user_id, error_log):
             "cost": str(cost)
         }), 201
 
-    except Exception as error:
+    except Exception:
         log_repository.rollback()
         raise

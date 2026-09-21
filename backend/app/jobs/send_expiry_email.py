@@ -1,5 +1,6 @@
 import smtplib
 from email.mime.text import MIMEText
+
 from app import create_app
 from app.config import Config
 from app.repositories import log_repository, user_repository

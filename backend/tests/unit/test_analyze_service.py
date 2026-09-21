@@ -1,8 +1,10 @@
-import pytest
 from unittest.mock import patch
-from app.services import auth_service, analyze_service
-from app.models import Log, Analysis
+
+import pytest
+
 from app.errors import ExternalServiceError
+from app.models import Analysis, Log
+from app.services import analyze_service, auth_service
 
 
 @patch("app.services.analyze_service.ask_groq")
@@ -17,7 +19,7 @@ def test_analyze_error_success(mock_ask_groq, app, db):
         auth_service.create_user("ridoy", "ridoy@email.com", "pass123")
         user_id = auth_service.User.query.filter_by(username="ridoy").first().id
 
-        response, status = analyze_service.analyze_error(user_id, "ImagePullBackOff error")
+        _, status = analyze_service.analyze_error(user_id, "ImagePullBackOff error")
 
         assert status == 201
         assert Log.query.count() == 1

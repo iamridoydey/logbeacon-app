@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock, patch
+
 from app.jobs.cleanup_logs import run_cleanup
 
 

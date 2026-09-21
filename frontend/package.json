@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "node --watch src/app.js",
+    "lint": "eslint .",
+    "test": "node --test",
     "build:css": "npx @tailwindcss/cli -i ./public/css/input.css -o ./public/css/style.css --watch"
   },
   "keywords": [],

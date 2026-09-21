@@ -1,9 +1,11 @@
+import hashlib
 from functools import wraps
-from flask import request, session, g, jsonify
+
+from flask import g, jsonify, request, session
+
 from app.db import db
 from app.models import User
 from app.repositories import user_repository
-import hashlib
 
 
 def require_login(f):
