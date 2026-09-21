@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout app repository
-        uses: actions/checkout@7
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -80,7 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout app repository
-        uses: actions/checkout@7
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
