@@ -1,7 +1,6 @@
 import time
 
 from flask import jsonify
-from requests.exceptions import RequestException
 
 from app.errors import ExternalServiceError, ValidationError
 from app.models import Analysis, Log
