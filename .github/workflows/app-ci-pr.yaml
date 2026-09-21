@@ -125,7 +125,7 @@ jobs:
           MAX_ERROR_LENGTH: 500
           PRICE_PER_MILLION_TOKENS: 0.05
           SMTP_HOST: "test-smtp-host"
-          SMTP_PORT: "test-smtp-port"
+          SMTP_PORT: 587
           SMTP_USER: "test-smtp-user"
           SMTP_PASSWORD: "test-smtp-password"
           FROM_EMAIL: "test-from-email"
