@@ -117,18 +117,18 @@ jobs:
           GROQ_API_KEY: test-groq-api-key
           GROQ_MODEL: test-groq-model
           ALLOWED_ORIGINS: test-allowed-origins
-          DATABASE_URL: test-database-url
+          DATABASE_URL: "postgresql://logbeacon:logbeacon@localhost/logbeacon_test"
           SQLALCHEMY_TRACK_MODIFICATIONS: False
-          REDIS_URL: "test-redis-url"
+          REDIS_URL: "redis://localhost:6379/0"
           SECRET_KEY: "test-secret-key"
           CHAT_RETENTION_DAYS: 10
           MAX_ERROR_LENGTH: 500
           PRICE_PER_MILLION_TOKENS: 0.05
           SMTP_HOST: "test-smtp-host"
           SMTP_PORT: 587
-          SMTP_USER: "test-smtp-user"
+          SMTP_USER: "test-smtp-user@gmail.com"
           SMTP_PASSWORD: "test-smtp-password"
-          FROM_EMAIL: "test-from-email"
+          FROM_EMAIL: "test-from-email@gmail.com"
 
         run: pytest
 
