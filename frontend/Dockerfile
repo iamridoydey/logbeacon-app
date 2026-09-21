@@ -1,43 +1,63 @@
-# ==========================================
-# STAGE 1: Builder
-# ==========================================
-FROM node:slim AS builder
+# =============================================================
+# STAGE 1 — BUILD
+# =============================================================
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
-# Copy package files first to leverage Docker layer caching
-COPY package*.json .
+# Copy dependency manifests first for Docker layer caching
+COPY package.json package-lock.json ./
 
-# Install ALL dependencies here — including devDependencies —
-# because tailwindcss/postcss (needed for build:css) live there
+# Install dependencies exactly from package-lock.json
 RUN npm ci
 
-# Copy the rest of the source
-COPY . .
+# Your package.json currently uses @tailwindcss/cli through npx
+# but does not declare it as a dependency.
+# Install a pinned CLI version only in the build stage.
+RUN npm install --no-save @tailwindcss/cli@4.3.3
 
-RUN npm run build:css
+# Copy application source
+COPY src ./src
+COPY views ./views
+COPY public ./public
+COPY postcss.config.js ./
+
+# Build Tailwind CSS ONCE.
+# Do not use your build:css script here because it currently uses --watch.
+RUN npx @tailwindcss/cli \
+    -i ./public/css/input.css \
+    -o ./public/css/style.css \
+    --minify
 
 
-# ==========================================
-# STAGE 2: Runner
-# ==========================================
-FROM node:slim AS runner
+# =============================================================
+# STAGE 2 — PRODUCTION RUNTIME
+# =============================================================
+FROM node:22-slim AS runner
+
+ENV NODE_ENV=production
 
 WORKDIR /app
 
-# Create non-root system user for improved security
-RUN useradd --create-home logbeacon
+# Create an unprivileged application user
+RUN groupadd --system logbeacon \
+    && useradd \
+       --system \
+       --gid logbeacon \
+       --create-home \
+       logbeacon
 
-# Install ONLY production dependencies here — separate, fresh install
-COPY package*.json .
-RUN npm ci --omit=dev
+# Install production dependencies only
+COPY package.json package-lock.json ./
 
-# Copy the application code + the already-built CSS from the builder stage
-COPY --chown=logbeacon:logbeacon --from=builder /app/src ./src
-COPY --chown=logbeacon:logbeacon --from=builder /app/views ./views
-COPY --chown=logbeacon:logbeacon --from=builder /app/public ./public
+RUN npm ci --omit=dev \
+    && npm cache clean --force
 
-# Switch to non-root user
+# Copy only what the application needs at runtime
+COPY --from=builder --chown=logbeacon:logbeacon /app/src ./src
+COPY --from=builder --chown=logbeacon:logbeacon /app/views ./views
+COPY --from=builder --chown=logbeacon:logbeacon /app/public ./public
+
 USER logbeacon
 
 EXPOSE 3000

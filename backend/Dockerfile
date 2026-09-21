@@ -1,42 +1,57 @@
-# ==========================================
-# STAGE 1: Builder
-# ==========================================
+# =============================================================
+# STAGE 1 — BUILD PYTHON DEPENDENCIES
+# =============================================================
 FROM python:3.11-slim AS builder
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# Create virtual environment
-RUN python -m venv /app/.venv
+# Create an isolated virtual environment
+RUN python -m venv /opt/venv
 
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Install dependencies
-COPY requirements-prod.txt .
+# Install dependencies separately so this layer is cached
+COPY requirements-prod.txt ./
 
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements-prod.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements-prod.txt
 
 
-# ==========================================
-# STAGE 2: Runner
-# ==========================================
+# =============================================================
+# STAGE 2 — PRODUCTION RUNTIME
+# =============================================================
 FROM python:3.11-slim AS runner
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
+
 WORKDIR /app
 
-# Create non-root user
-RUN useradd --create-home logbeacon
+# Create non-root application user
+RUN groupadd --system logbeacon \
+    && useradd \
+       --system \
+       --gid logbeacon \
+       --create-home \
+       logbeacon
 
-# Copy application source first
-COPY --chown=logbeacon:logbeacon . .
+# Copy the already-built Python environment
+COPY --from=builder /opt/venv /opt/venv
 
-# Copy Docker-built virtual environment LAST
-COPY --from=builder /app/.venv /app/.venv
-
-ENV PATH="/app/.venv/bin:$PATH"
+# Copy only backend application/runtime files
+COPY --chown=logbeacon:logbeacon app ./app
+COPY --chown=logbeacon:logbeacon migrations ./migrations
+COPY --chown=logbeacon:logbeacon alembic.ini ./
+COPY --chown=logbeacon:logbeacon wsgi.py ./
 
 USER logbeacon
 
 EXPOSE 5000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "wsgi:app"]
+# Kubernetes should handle migrations separately or with an init/job.
+# The application container itself only starts Gunicorn.
+CMD ["gunicorn","--bind", "0.0.0.0:5000",  "--workers", "2","--threads", "2","--timeout", "120","--access-logfile", "-","--error-logfile", "-","wsgi:app"]
