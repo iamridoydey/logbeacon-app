@@ -1,14 +1,14 @@
 
-function copyToClipboard(elementId) {
-    const el = document.getElementById(elementId);
-    if (!el) return;
-    navigator.clipboard.writeText(el.innerText).then(() => {
-        showToast("Copied to clipboard", "success");
-    }).catch(err => {
-        console.error("Failed to copy:", err);
-        showToast("Couldn't copy — try again", "error");
-    });
-}
+// function copyToClipboard(elementId) {
+//     const el = document.getElementById(elementId);
+//     if (!el) return;
+//     navigator.clipboard.writeText(el.innerText).then(() => {
+//         showToast("Copied to clipboard", "success");
+//     }).catch(err => {
+//         console.error("Failed to copy:", err);
+//         showToast("Couldn't copy — try again", "error");
+//     });
+// }
 
 function escapeHtml(str) {
     const div = document.createElement("div");
@@ -157,7 +157,7 @@ document.addEventListener("DOMContentLoaded", () => {
             form.scrollIntoView({ behavior: "smooth", block: "end" });
 
         } catch (err) {
-            showToast("Network error — is the server running?", "error");
+            showToast("Network error — is the server running?", err);
         } finally {
             submitBtn.disabled = false;
             submitBtn.textContent = "Analyze";

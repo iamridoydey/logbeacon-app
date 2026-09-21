@@ -23,6 +23,12 @@
     "express-session": "^1.19.0",
     "marked": "^18.0.9",
     "postcss": "^8.5.26",
+    "process": "^0.11.10",
     "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0"
   }
 }
