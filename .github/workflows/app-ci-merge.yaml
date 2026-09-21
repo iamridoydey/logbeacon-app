@@ -14,15 +14,6 @@ jobs:
     name: Build, scan, tag, and push images
     runs-on: ubuntu-latest
     environment: app-release-production
-
-    strategy:
-      matrix:
-        include:
-          - service: frontend
-            ecr_repo: logbeacon/frontend
-          - service: backend
-            ecr_repo: logbeacon/backend
-
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -57,8 +48,50 @@ jobs:
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Tag and push ${{ matrix.service }} image
+      # --- Frontend ---
+      - name: Build frontend image
         run: |
-          IMAGE_URI="${{ steps.ecr-login.outputs.registry }}/${{ matrix.ecr_repo }}:${{ steps.version.outputs.tag }}"
-          docker tag logbeacon-${{ matrix.service }}:${{ steps.version.outputs.tag }} "$IMAGE_URI"
+          docker build \
+            --platform linux/amd64 \
+            -t logbeacon/frontend:${{ env.SHA_SHORT }} \
+            frontend
+
+      - name: Trivy scan frontend
+        uses: aquasecurity/trivy-action@v0.20.0
+        with:
+          image-ref: logbeacon/frontend:${{ env.SHA_SHORT }}
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+
+      - name: Tag and push frontend image
+        run: |
+          IMAGE_URI="${{ steps.ecr-login.outputs.registry }}/logbeacon/frontend:${{ env.SHA_SHORT }}"
+          docker tag logbeacon/frontend:${{ env.SHA_SHORT }} "$IMAGE_URI"
           docker push "$IMAGE_URI"
+          docker tag logbeacon/frontend:${{ env.SHA_SHORT }} "${{ steps.ecr-login.outputs.registry }}/logbeacon/frontend:latest"
+          docker push "${{ steps.ecr-login.outputs.registry }}/logbeacon/frontend:latest"
+
+      # --- Backend ---
+      - name: Build backend image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -t logbeacon/backend:${{ env.SHA_SHORT }} \
+            backend
+
+      - name: Trivy scan backend
+        uses: aquasecurity/trivy-action@v0.20.0
+        with:
+          image-ref: logbeacon/backend:${{ env.SHA_SHORT }}
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+
+      - name: Tag and push backend image
+        run: |
+          IMAGE_URI="${{ steps.ecr-login.outputs.registry }}/logbeacon/backend:${{ env.SHA_SHORT }}"
+          docker tag logbeacon/backend:${{ env.SHA_SHORT }} "$IMAGE_URI"
+          docker push "$IMAGE_URI"
+          docker tag logbeacon/backend:${{ env.SHA_SHORT }} "${{ steps.ecr-login.outputs.registry }}/logbeacon/backend:latest"
+          docker push "${{ steps.ecr-login.outputs.registry }}/logbeacon/backend:latest"
