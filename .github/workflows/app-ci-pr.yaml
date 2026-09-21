@@ -1,10 +1,10 @@
-# Action revisions are pinned in CI_SETUP.md if needed, but here we use latest stable versions.
 name: App ci on pull request
 
 on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout app repository
-        uses: actions/checkout@7
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -30,68 +30,188 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: "fs"
-          scan-ref: "logbeacon-app/frontend"
+          scan-ref: "frontend"
           format: "sarif"
           output: "trivy-frontend-results.sarif"
           severity: "HIGH,CRITICAL"
-          ignore-unfixed: true 
+          ignore-unfixed: true
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
-        if: always() 
+        if: always()
         with:
           sarif_file: "trivy-frontend-results.sarif"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22' 
-          cache: 'npm'
+          node-version: 24
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
+        working-directory: frontend
         run: npm ci
 
       - name: Frontend test
+        working-directory: frontend
         run: npm test
 
       - name: Frontend lint
+        working-directory: frontend
         run: npm run lint
 
+      - name: Checkov Frontend Dockerfile Scan
+        id: checkov-frontend
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: frontend
+          output_format: sarif
+          output_file_path: checkov-frontend-results.sarif
+          framework: dockerfile
+          soft_fail: true
+
+      - name: Upload frontend Checkov results to GitHub
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: checkov-frontend-results.sarif
 
   backend-checks:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: logbeacon
+          POSTGRES_PASSWORD: logbeacon
+          POSTGRES_DB: logbeacon_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U logbeacon -d logbeacon_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - name: Checkout app repository
-        uses: actions/checkout@7
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Run Trivy vulnerability scanner in fs mode on frontend
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: "fs"
-          scan-ref: "logbeacon-app/backend"
-          format: "sarif"
-          output: "trivy-backend-results.sarif"
-          severity: "HIGH,CRITICAL"
-          ignore-unfixed: true 
-
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always() 
-        with:
-          sarif_file: "trivy-backend-results.sarif"
-
       - name: Setup Python
-        uses: actions/setup-python@v7 
+        uses: actions/setup-python@v7
         with:
-          python-version: 'pypy3.12' 
+          python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt 
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Create test database
+        run: |
+          psql -h localhost -U logbeacon -d logbeacon_test -c "CREATE DATABASE logbeacon_dev_test;"
+        env:
+          PGPASSWORD: logbeacon
 
       - name: Backend test
-        run: npm test
+        working-directory: backend
+        env:
+          GROQ_API_KEY: test-groq-api-key
+          GROQ_MODEL: test-groq-model
+          ALLOWED_ORIGINS: test-allowed-origins
+          DATABASE_URL: "postgresql://logbeacon:logbeacon@localhost:5432/logbeacon_dev_test"
+          SQLALCHEMY_TRACK_MODIFICATIONS: False
+          REDIS_URL: "redis://localhost:6379/0"
+          SECRET_KEY: "test-secret-key"
+          CHAT_RETENTION_DAYS: 10
+          MAX_ERROR_LENGTH: 500
+          PRICE_PER_MILLION_TOKENS: 0.05
+          SMTP_HOST: "test-smtp-host"
+          SMTP_PORT: 587
+          SMTP_USER: "test-smtp-user@gmail.com"
+          SMTP_PASSWORD: "test-smtp-password"
+          FROM_EMAIL: "test-from-email@gmail.com"
+        run: pytest
 
       - name: Backend lint
-        run: npm run lint
+        working-directory: backend
+        run: ruff check .
+
+      - name: Checkov Backend Dockerfile Scan
+        id: checkov-backend
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: backend
+          output_format: sarif
+          output_file_path: checkov-backend-results.sarif
+          framework: dockerfile
+          soft_fail: true
+
+      - name: Upload backend Checkov results to GitHub
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: checkov-backend-results.sarif
+
+  build-and-scan-images:
+    runs-on: ubuntu-latest
+    needs:
+      - frontend-checks
+      - backend-checks
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set SHA_SHORT
+        run: echo "SHA_SHORT=$(git rev-parse --short "$GITHUB_SHA")" >> "$GITHUB_ENV"
+
+      - name: Build frontend image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -t logbeacon-frontend:${{ env.SHA_SHORT }} \
+            frontend
+
+      - name: Trivy scan frontend
+        uses: aquasecurity/trivy-action@v0.20.0
+        with:
+          image-ref: logbeacon-frontend:${{ env.SHA_SHORT }}
+          format: table
+          output: trivy-frontend.txt
+          exit-code: "0"  # Silently pass if errors severity is high
+          severity: CRITICAL,HIGH
+
+      - name: Upload frontend scan result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-frontend-scan
+          path: trivy-frontend.txt
+
+      - name: Build backend image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -t logbeacon-backend:${{ env.SHA_SHORT }} \
+            backend
+
+      - name: Trivy scan backend
+        uses: aquasecurity/trivy-action@v0.20.0
+        with:
+          image-ref: logbeacon-backend:${{ env.SHA_SHORT }}
+          format: table
+          output: trivy-backend.txt
+          exit-code: "0" # Silently pass if errors severity is high
+          severity: CRITICAL,HIGH
+
+      - name: Upload backend scan result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-backend-scan
+          path: trivy-backend.txt

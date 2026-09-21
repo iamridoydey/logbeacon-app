@@ -1,7 +1,6 @@
 import time
 
 from flask import jsonify
-from requests.exceptions import RequestException
 
 from app.errors import ExternalServiceError, ValidationError
 from app.models import Analysis, Log
@@ -18,8 +17,8 @@ def analyze_error(user_id, error_log):
 
     try:
         solution = ask_groq(error_log)
-    except RequestException as error:
-        raise ExternalServiceError(f"LLM call failed: {error!s}")
+    except Exception as e:
+        raise ExternalServiceError(f"Failed to get analysis from Groq: {e}") from e
 
     latency_ms = int((time.perf_counter() - start_time) * 1000)
 
