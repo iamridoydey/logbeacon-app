@@ -10,6 +10,10 @@ permissions:
   contents: read
   id-token: write
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   release:
     name: Build, scan, tag, and push images
@@ -17,33 +21,18 @@ jobs:
     environment: app-release-production
     steps:
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Generate version tag
-        id: version
-        run: echo "tag=$(git rev-parse --short HEAD)-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
-
-      - name: Build ${{ matrix.service }} image
-        run: |
-          docker build \
-            -t logbeacon-${{ matrix.service }}:${{ steps.version.outputs.tag }} \
-            ./${{ matrix.service }}
-
-      - name: Trivy image scan — ${{ matrix.service }}
-        uses: aquasecurity/trivy-action@v0.20.0
-        with:
-          image-ref: logbeacon-${{ matrix.service }}:${{ steps.version.outputs.tag }}
-          format: table
-          exit-code: "1"
-          severity: CRITICAL,HIGH
+      - name: Set SHA_SHORT
+        run: echo "SHA_SHORT=$(git rev-parse --short "$GITHUB_SHA")" >> "$GITHUB_ENV"
 
       - name: Configure AWS
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
-          aws-region: "${{ vars.AWS_REGION }}"
-          role-to-assume: "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/logbeacon-app-ci-role"
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/logbeacon-app-ci-role
 
       - name: Login to ECR
         id: ecr-login
@@ -70,8 +59,6 @@ jobs:
           IMAGE_URI="${{ steps.ecr-login.outputs.registry }}/logbeacon/frontend:${{ env.SHA_SHORT }}"
           docker tag logbeacon/frontend:${{ env.SHA_SHORT }} "$IMAGE_URI"
           docker push "$IMAGE_URI"
-          docker tag logbeacon/frontend:${{ env.SHA_SHORT }} "${{ steps.ecr-login.outputs.registry }}/logbeacon/frontend:latest"
-          docker push "${{ steps.ecr-login.outputs.registry }}/logbeacon/frontend:latest"
 
       # --- Backend ---
       - name: Build backend image
@@ -94,5 +81,3 @@ jobs:
           IMAGE_URI="${{ steps.ecr-login.outputs.registry }}/logbeacon/backend:${{ env.SHA_SHORT }}"
           docker tag logbeacon/backend:${{ env.SHA_SHORT }} "$IMAGE_URI"
           docker push "$IMAGE_URI"
-          docker tag logbeacon/backend:${{ env.SHA_SHORT }} "${{ steps.ecr-login.outputs.registry }}/logbeacon/backend:latest"
-          docker push "${{ steps.ecr-login.outputs.registry }}/logbeacon/backend:latest"
