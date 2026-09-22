@@ -204,14 +204,14 @@ jobs:
           echo "SONAR_TOKEN=$(echo "$SECRET_OBJ" | jq -r '.SONAR_TOKEN')" >> "$GITHUB_OUTPUT"
 
       - name: Checkout Source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       ##################################################
       # FRONTEND SONAR SCAN
       ##################################################
 
       - name: Frontend SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@master
+        uses: sonarsource/sonarqube-scan-action@v6
         with:
           projectBaseDir: frontend
         env:
@@ -229,7 +229,7 @@ jobs:
           retention-days: 7
 
       - name: Frontend SonarQube Quality Gate Check
-        uses: sonarsource/sonarqube-quality-gate-check-action@master
+        uses: sonarsource/sonarqube-quality-gate-check-action@v6
         timeout-minutes: 5
         with:
           scanMetadataReportFile: frontend/.scannerwork/report-task.txt
