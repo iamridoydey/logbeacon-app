@@ -187,8 +187,8 @@ jobs:
           image-ref: logbeacon-frontend:${{ env.SHA_SHORT }}
           format: table
           output: trivy-frontend.txt
-          exit-code: "0" # Silently pass if errors severity is high
-          severity: CRITICAL,HIGH
+          exit-code: "1"
+          severity: CRITICAL
 
       - name: Upload frontend scan result
         if: always()
@@ -210,8 +210,8 @@ jobs:
           image-ref: logbeacon-backend:${{ env.SHA_SHORT }}
           format: table
           output: trivy-backend.txt
-          exit-code: "0" # Silently pass if errors severity is high
-          severity: CRITICAL,HIGH
+          exit-code: "1" 
+          severity: CRITICAL
 
       - name: Upload backend scan result
         if: always()

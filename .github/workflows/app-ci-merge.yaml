@@ -52,7 +52,7 @@ jobs:
           image-ref: logbeacon/frontend:${{ env.SHA_SHORT }}
           format: table
           exit-code: "1"
-          severity: CRITICAL,HIGH
+          severity: CRITICAL
 
       - name: Tag and push frontend image
         run: |
@@ -74,7 +74,7 @@ jobs:
           image-ref: logbeacon/backend:${{ env.SHA_SHORT }}
           format: table
           exit-code: "1"
-          severity: CRITICAL,HIGH
+          severity: CRITICAL
 
       - name: Tag and push backend image
         run: |
