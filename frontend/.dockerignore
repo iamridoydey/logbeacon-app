@@ -1,0 +1,25 @@
+# Local dependencies
+**/node_modules
+
+# Credentials and environment files
+**/.env
+**/.env.*
+!**/.env.example
+
+# Git and editor settings
+.git
+.github
+.vscode
+.idea
+**/.DS_Store
+
+# Logs and caches
+**/*.log
+**/.npm
+**/.cache
+**/.eslintcache
+**/.stylelintcache
+
+# Test coverage
+coverage
+.nyc_output
