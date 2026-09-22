@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
@@ -104,6 +105,22 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Run Trivy vulnerability scanner in fs mode on backend
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "backend"
+          format: "sarif"
+          output: "trivy-backend-results.sarif"
+          severity: "HIGH,CRITICAL"
+          ignore-unfixed: true
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-backend-results.sarif"
+
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
@@ -158,12 +175,106 @@ jobs:
         if: always()
         with:
           sarif_file: checkov-backend-results.sarif
+  
+  sonarqube-analysis:
+    runs-on: ubuntu-latest
+    needs: 
+      - frontend-checks
+      - backend-checks
+
+    steps:
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/logbeacon-app-ci-role
+
+      - name: Get SonarQube Secrets
+        id: sonar_secret
+        shell: bash
+        run: |
+          SECRET_OBJ=$(aws secretsmanager get-secret-value \
+            --secret-id sonarqube-ci-cred \
+            --query SecretString \
+            --output text)
+
+          if [[ -z "$SECRET_OBJ" ]]; then
+            echo "Secret not found"
+            exit 1
+          fi
+
+          echo "SONAR_HOST_URL=$(echo "$SECRET_OBJ" | jq -r '.SONAR_HOST_URL')" >> "$GITHUB_OUTPUT"
+          echo "SONAR_TOKEN=$(echo "$SECRET_OBJ" | jq -r '.SONAR_TOKEN')" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Source
+        uses: actions/checkout@v7
+
+      ##################################################
+      # FRONTEND SONAR SCAN
+      ##################################################
+
+      - name: Frontend SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v6
+        with:
+          projectBaseDir: frontend
+        env:
+          SONAR_TOKEN: ${{ steps.sonar_secret.outputs.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ steps.sonar_secret.outputs.SONAR_HOST_URL }}
+
+      - name: Upload Frontend Sonar Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-sonar-report
+          path: |
+            frontend/.scannerwork/report-task.txt
+            frontend/.scannerwork/scanner-report/
+          retention-days: 7
+
+      - name: Frontend SonarQube Quality Gate Check
+        uses: sonarsource/sonarqube-quality-gate-check-action@v6
+        timeout-minutes: 5
+        with:
+          scanMetadataReportFile: frontend/.scannerwork/report-task.txt
+        env:
+          SONAR_TOKEN: ${{ steps.sonar_secret.outputs.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ steps.sonar_secret.outputs.SONAR_HOST_URL }}
+
+      ##################################################
+      # BACKEND SONAR SCAN
+      ##################################################
+
+      - name: Backend SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        with:
+          projectBaseDir: backend
+        env:
+          SONAR_TOKEN: ${{ steps.sonar_secret.outputs.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ steps.sonar_secret.outputs.SONAR_HOST_URL }}
+
+      - name: Upload Backend Sonar Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-sonar-report
+          path: |
+            backend/.scannerwork/report-task.txt
+            backend/.scannerwork/scanner-report/
+          retention-days: 7
+
+      - name: Backend SonarQube Quality Gate Check
+        uses: sonarsource/sonarqube-quality-gate-check-action@master
+        timeout-minutes: 5
+        with:
+          scanMetadataReportFile: backend/.scannerwork/report-task.txt
+        env:
+          SONAR_TOKEN: ${{ steps.sonar_secret.outputs.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ steps.sonar_secret.outputs.SONAR_HOST_URL }}
 
   build-and-scan-images:
     runs-on: ubuntu-latest
     needs:
-      - frontend-checks
-      - backend-checks
+      - sonarqube-analysis
 
     steps:
       - name: Checkout repository
