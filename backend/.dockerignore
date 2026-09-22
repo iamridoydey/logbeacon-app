@@ -1,8 +1,30 @@
-.venv
-venv
-__pycache__
-.pytest_cache
-*.pyc
-.pytest_cache
+# Local virtual environments
+**/.venv
+**/venv
+
+# Python bytecode and caches
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.cache
+
+# Credentials and environment files
+**/.env
+**/.env.*
+!**/.env.example
+
+# Git and editor settings
 .git
-.env
+.github
+.vscode
+.idea
+**/.DS_Store
+
+# Logs and test coverage
+**/*.log
+.coverage
+.coverage.*
+coverage.xml
+htmlcov

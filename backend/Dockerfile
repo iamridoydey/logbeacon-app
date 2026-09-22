@@ -1,39 +1,47 @@
 # ==========================================
 # STAGE 1: Builder
 # ==========================================
-FROM python:3.11-slim AS builder
+FROM python:3.11-alpine3.24 AS builder
 
 WORKDIR /app
 
-# Create virtual environment
-RUN python -m venv /app/.venv
+# Build tools for common native Python dependencies
+RUN apk add --no-cache \
+    build-base \
+    libffi-dev \
+    openssl-dev \
+    postgresql-dev
 
-ENV PATH="/app/.venv/bin:$PATH"
+RUN python -m venv /opt/venv
 
-# Install dependencies
-COPY requirements-prod.txt .
+ENV PATH="/opt/venv/bin:$PATH"
 
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements-prod.txt
+COPY requirements-prod.txt ./
+
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements-prod.txt \
+    && pip check
 
 
 # ==========================================
 # STAGE 2: Runner
 # ==========================================
-FROM python:3.11-slim AS runner
+FROM python:3.11-alpine3.24 AS runner
+
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Create non-root user
-RUN useradd --create-home logbeacon
+# Runtime libraries and non-root user
+RUN apk add --no-cache libpq libffi libstdc++ \
+    && addgroup -S -g 10001 logbeacon \
+    && adduser -S -D -u 10001 -G logbeacon logbeacon
 
-# Copy application source first
+COPY --from=builder /opt/venv /opt/venv
+
 COPY --chown=logbeacon:logbeacon . .
-
-# Copy Docker-built virtual environment LAST
-COPY --from=builder /app/.venv /app/.venv
-
-ENV PATH="/app/.venv/bin:$PATH"
 
 USER logbeacon
 
