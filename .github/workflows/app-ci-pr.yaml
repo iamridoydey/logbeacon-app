@@ -4,6 +4,10 @@ on:
   pull_request:
     branches:
       - main
+
+    paths-ignore:
+      - "app-ci-merge.yaml"
+
   workflow_dispatch:
 
 permissions:
@@ -183,7 +187,7 @@ jobs:
           image-ref: logbeacon-frontend:${{ env.SHA_SHORT }}
           format: table
           output: trivy-frontend.txt
-          exit-code: "0"  # Silently pass if errors severity is high
+          exit-code: "0" # Silently pass if errors severity is high
           severity: CRITICAL,HIGH
 
       - name: Upload frontend scan result
