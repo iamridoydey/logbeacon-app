@@ -7,12 +7,15 @@ on:
 
     paths-ignore:
       - "app-ci-merge.yaml"
+      - "diagrams"
+      - "compose"
 
   workflow_dispatch:
 
 permissions:
   contents: read
   id-token: write
+  security-events: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
