@@ -146,7 +146,7 @@ jobs:
           SQLALCHEMY_TRACK_MODIFICATIONS: False
           REDIS_URL: "redis://localhost:6379/0"
           SECRET_KEY: "test-secret-key"
-          CHAT_RETENTION_DAYS: 10
+          LOG_RETENTION_DAYS: 10
           MAX_ERROR_LENGTH: 500
           PRICE_PER_MILLION_TOKENS: 0.05
           SMTP_HOST: "test-smtp-host"
