@@ -1,0 +1,12 @@
+include:
+  - compose.app.yaml
+services:
+  frontend:
+    image: iamridoydey/logbeacon-frontend
+  backend:
+    image: imaridoydey/logbeacon-backend
+
+networks:
+  logbeacon:
+    driver: bridge
+    name: logbeacon
