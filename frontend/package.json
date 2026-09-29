@@ -16,6 +16,8 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/auto-instrumentations-node": "^0.80.0",
     "@tailwindcss/postcss": "^4.3.3",
     "dotenv": "^17.4.2",
     "ejs": "^6.0.1",
