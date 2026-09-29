@@ -8,13 +8,14 @@
   <% } %>
 
   <% if (typeof apiKey !== 'undefined' && apiKey) { %>
-    <div class="bg-teal/10 border border-teal/30 text-teal text-sm px-4 py-3 rounded-md mb-4">
+    <!-- Removed the api key functionality because it is redaundant for now -->
+    <!-- <div class="bg-teal/10 border border-teal/30 text-teal text-sm px-4 py-3 rounded-md mb-4">
       <p class="font-medium">Account created. Save your API key — it won't be shown again:</p>
       <code class="block mt-2 bg-bg px-3 py-2 rounded border border-border text-xs font-mono text-text break-all">
         <%= apiKey %>
       </code>
-      <a href="/auth/signin" class="inline-block mt-3 text-accent hover:text-accent-hover text-sm">Continue to sign in →</a>
-    </div>
+    </div> -->
+    <a href="/auth/signin" class="inline-block mt-3 text-accent hover:text-accent-hover text-sm">Continue to sign in →</a>
   <% } else { %>
     <form method="POST" action="/auth/register" class="space-y-4">
       <div>
