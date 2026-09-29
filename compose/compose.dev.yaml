@@ -1,5 +1,6 @@
 include:
   - compose.app.yaml
+  - compose.observ.yaml
 
 services:
   frontend:
@@ -15,7 +16,7 @@ services:
     build:
       context: ../backend
       target: builder
-    command: flask run --host=0.0.0.0 --debug
+    command: opentelemetry-instrument flask run --host=0.0.0.0 --debug
     volumes:
       - ../backend:/app
       - /app/.venv

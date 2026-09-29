@@ -1,0 +1,67 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: postgresql
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["postgres-exporter:9187"]
+
+        - job_name: redis
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["redis-exporter:9121"]
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    # Start refusing data if collector own memroy
+    # usage is bigger than 192MiB/s
+    limit_mib: 192
+    spike_limit_mib: 48
+
+  # Instead of forwarding every single span/log/metric
+  # individually send them in bacth
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
+exporters:
+  # Just print the data to the collector's stdout
+  debug:
+    verbosity: basic
+
+  prometheus:
+    endpoint: 0.0.0.0:8889
+
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+
+service:            
+  pipelines:
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]
+
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/tempo]
+
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/loki]
