@@ -1,0 +1,138 @@
+services:
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
+    environment:
+      DATA_SOURCE_URI: "db:5432/${POSTGRES_DB}?sslmode=disable"
+      DATA_SOURCE_USER: "${POSTGRES_USER}"
+      DATA_SOURCE_PASS: "${POSTGRES_PASSWORD}"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - logbeacon
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.88.0
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+    depends_on:
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - logbeacon
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.161.0
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./observability/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
+      
+    depends_on:
+      - postgres-exporter
+      - redis-exporter
+    mem_limit: 256m
+    restart: unless-stopped
+    networks:
+      - logbeacon
+
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yaml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+    volumes:
+      - ./observability/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - otel-collector
+    restart: unless-stopped
+    networks:
+      - logbeacon
+
+  tempo-init:
+    image: alpine:3.23
+    user: "0:0"
+    command: ["chown", "10001:10001", "/var/tempo"]
+    volumes:
+      - tempo_data:/var/tempo
+    restart: "no"
+    networks:
+      - logbeacon
+
+  tempo:
+    image: grafana/tempo:2.10.8
+    user: "10001:10001"
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./observability/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo_data:/var/tempo
+    ports:
+      - "3200:3200"
+    depends_on:
+      tempo-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks:
+      - logbeacon
+
+  loki-init:
+    image: alpine:3.23
+    # UID 0
+    user: "0:0"
+    # UID 10001
+    command: ["chown", "10001:10001", "/loki"]
+    volumes:
+      - loki_data:/loki
+    restart: "no"
+    networks:
+      - logbeacon
+
+  loki:
+    image: grafana/loki:3.7.8
+    user: "10001:10001"
+    command: ["-config.file=/etc/loki/loki.yaml"]
+    volumes:
+      - ./observability/loki.yaml:/etc/loki/loki.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    depends_on:
+      loki-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks:
+      - logbeacon
+
+  grafana:
+    image: grafana/grafana:13.2.2
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+    restart: unless-stopped
+    networks:
+      - logbeacon
+
+volumes:
+  prometheus_data:
+  tempo_data:
+  loki_data:
+  grafana_data:

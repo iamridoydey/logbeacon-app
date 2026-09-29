@@ -7,6 +7,14 @@ services:
       - PORT=${PORT}
       - FLASK_API_URL=http://backend:5000
       - SESSION_SECRET=${SESSION_SECRET}
+      # Observability env
+      - OTEL_SERVICE_NAME=${FRONTEND_OTEL_SERVICE_NAME}
+      - OTEL_TRACES_EXPORTER=${FRONTEND_OTEL_TRACES_EXPORTER}
+      - OTEL_METRICS_EXPORTER=${FRONTEND_OTEL_METRICS_EXPORTER}
+      - OTEL_LOGS_EXPORTER=${FRONTEND_OTEL_LOGS_EXPORTER}
+      - OTEL_EXPORTER_OTLP_PROTOCOL=${FRONTEND_OTEL_EXPORTER_OTLP_PROTOCOL}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${FRONTEND_OTEL_EXPORTER_OTLP_ENDPOINT}
+      - NODE_OPTIONS=${FRONTEND_NODE_OPTIONS}
     depends_on:
       - db
       - backend
@@ -34,13 +42,21 @@ services:
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - FROM_EMAIL=${FROM_EMAIL}
+
+      # Observability env
+      - OTEL_SERVICE_NAME=${BACKEND_OTEL_SERVICE_NAME}
+      - OTEL_EXPORTER_OTLP_PROTOCOL=${BACKEND_OTEL_EXPORTER_OTLP_PROTOCOL}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT}
+      - OTEL_TRACES_EXPORTER=${BACKEND_OTEL_TRACES_EXPORTER}
+      - OTEL_METRICS_EXPORTER=${BACKEND_OTEL_METRICS_EXPORTER}
+      - OTEL_LOGS_EXPORTER=${BACKEND_OTEL_LOGS_EXPORTER}
     depends_on:
       - db
       - redis
     restart: unless-stopped
     networks:
       - logbeacon
-    command: sh -c "alembic upgrade head && flask run --host=0.0.0.0"
+    command: sh -c "alembic upgrade head && opentelemetry-instrument flask run --host=0.0.0.0"
 
   redis:
     image: redis:8.0-alpine
