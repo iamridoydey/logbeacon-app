@@ -1,8 +1,12 @@
+import logging
+
 from flask import jsonify
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.models import Log
 from app.repositories import log_repository
+
+logger = logging.getLogger(__name__)
 
 
 # Create log record in database
@@ -16,6 +20,7 @@ def create_log(user_id, error_log, error_solution):
         
         log_repository.save(new_log)
         log_repository.commit()
+        logger.info("log persisted user_id=%s log_id=%s", user_id, new_log.id)
 
         return jsonify({
             "id": new_log.id,
@@ -26,12 +31,14 @@ def create_log(user_id, error_log, error_solution):
 
     except SQLAlchemyError as error:
         log_repository.rollback()
+        logger.exception("log persist failed user_id=%s", user_id)
         return jsonify({"error": str(error)}), 500
     
 
 # Get all logs from database
 def get_user_logs(user_id):
     results = log_repository.find_all_by_user_with_analysis(user_id)
+    logger.info("history retrieved user_id=%s rows=%s", user_id, len(results))
 
     entries = []
     total_cost = 0.0

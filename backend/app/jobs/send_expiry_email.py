@@ -1,9 +1,12 @@
+import logging
 import smtplib
 from email.mime.text import MIMEText
 
 from app import create_app
 from app.config import Config
 from app.repositories import log_repository, user_repository
+
+logger = logging.getLogger(__name__)
 
 
 def _send_email(to_email, error_log, error_solution):
@@ -30,13 +33,17 @@ def send_expiry_email(log_id):
         log = log_repository.find_by_id(log_id)
 
         if not log:
+            logger.info("expiry job skipped missing log_id=%s", log_id)
             return  # already deleted, or never existed — nothing to do
 
         user = user_repository.find_by_id(log.user_id)
         if not user:
+            logger.warning("expiry job skipped missing user log_id=%s user_id=%s", log_id, log.user_id)
             return
 
+        logger.info("redis queue executing send_expiry_email log_id=%s user_id=%s", log_id, user.id)
         _send_email(user.email, log.error_log, log.error_solution)
 
         # only reached if _send_email didn't raise — safe to delete now
         log_repository.delete(log)
+        logger.info("expiry email sent and log deleted log_id=%s", log_id)

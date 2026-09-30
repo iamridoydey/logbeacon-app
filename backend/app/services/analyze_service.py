@@ -1,3 +1,4 @@
+import logging
 import time
 
 from flask import jsonify
@@ -7,6 +8,8 @@ from app.models import Analysis, Log
 from app.repositories import analysis_repository, log_repository
 from app.services.groq_service import ask_groq
 from app.services.pricing_service import calculate_cost
+
+logger = logging.getLogger(__name__)
 
 
 def analyze_error(user_id, error_log):
@@ -18,6 +21,7 @@ def analyze_error(user_id, error_log):
     try:
         solution = ask_groq(error_log)
     except Exception as e:
+        logger.exception("analysis failed at groq user_id=%s", user_id)
         raise ExternalServiceError(f"Failed to get analysis from Groq: {e}") from e
 
     latency_ms = int((time.perf_counter() - start_time) * 1000)
@@ -45,6 +49,15 @@ def analyze_error(user_id, error_log):
         )
         analysis_repository.save(new_analysis)
         log_repository.commit()  # commits both new_log and new_analysis together
+        logger.info(
+            "analysis succeeded user_id=%s log_id=%s latency_ms=%s input_tokens=%s output_tokens=%s cost=%s",
+            user_id,
+            new_log.id,
+            latency_ms,
+            input_tokens,
+            output_tokens,
+            cost,
+        )
 
         return jsonify({
             "message": "Successfully completed the analysis",
@@ -58,4 +71,5 @@ def analyze_error(user_id, error_log):
 
     except Exception:
         log_repository.rollback()
+        logger.exception("conversion persist failed user_id=%s", user_id)
         raise
