@@ -7,6 +7,7 @@ import session from "express-session";
 import authRouter from "./routes/auth.js";
 import dashboardRouter from "./routes/dashboard.js";
 import analyzeRouter from "./routes/analyze.js";
+import { logger } from "./logger.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,46 +20,58 @@ app.set("views", path.join(__dirname, "..", "views"));
 app.use(expressEjsLayouts);
 app.set("layout", "layouts/main");
 
-// #####################################################
-// ################# MIDDLEWARES #######################
-// #####################################################
-
-// Static files (compiled CSS, client-side JS)
+// Static files
 app.use(express.static(path.join(__dirname, "..", "public")));
 
-// Parse form submissions and JSON bodies
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    logger.info(
+      {
+        method: req.method,
+        path: req.path, 
+        status: res.statusCode,
+        duration_ms: Date.now() - start,
+      },
+      "request completed",
+    );
+  });
+  next();
+});
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-
-// Session 
 app.use(
-    session({
-        secret: config.sessionSecret,
-        resave: false,
-        saveUninitialized: false,
-        cookie: { httpOnly: true, secure: false, maxAge: 1000 * 60 * 60 * 24 },
-    }),
+  session({
+    secret: config.sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: { httpOnly: true, secure: false, maxAge: 1000 * 60 * 60 * 24 },
+  }),
 );
 
-// Making sure auth state available to every view
 app.use((req, res, next) => {
-    res.locals.isSignedIn = Boolean(req.session.isSignedIn);
-    next();
+  res.locals.isSignedIn = Boolean(req.session.isSignedIn);
+  next();
 });
 
-// Routes
 app.use("/auth", authRouter);
 app.use("/dashboard", dashboardRouter);
 app.use("/analyze", analyzeRouter);
 
-// Home route
 app.get("/", (req, res) => {
-    res.render("pages/home", { title: "LogBeacon — Home" });
+  res.render("pages/home", { title: "LogBeacon — Home" });
+});
+
+app.use((err, req, res, next) => {
+  logger.error({ err, method: req.method, path: req.path }, "unhandled error");
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(500).send("Something went wrong");
 });
 
 app.listen(config.port, () => {
-    console.log(
-        `LogBeacon frontend running on http://localhost:${config.port}`,
-    );
+  logger.info({ port: config.port }, "LogBeacon frontend started");
 });

@@ -4,6 +4,7 @@ from flask_cors import CORS
 from app.config import Config
 from app.db import db
 from app.errors import register_error_handlers
+from app.logging_setup import configure_logging
 from app.routes import register_routes
 
 
@@ -18,6 +19,7 @@ def create_app(test_config=None):
 
     # Load the default application configuration.
     app.config.from_object(Config)
+    configure_logging(app)
 
     CORS(
         app,
