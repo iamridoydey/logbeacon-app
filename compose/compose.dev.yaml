@@ -16,7 +16,7 @@ services:
     build:
       context: ../backend
       target: builder
-    command: opentelemetry-instrument flask run --host=0.0.0.0 --debug
+    command: sh -c "alembic upgrade head && gunicorn -c gunicorn.conf.py wsgi:app"
     volumes:
       - ../backend:/app
       - /app/.venv
