@@ -47,4 +47,4 @@ USER logbeacon
 
 EXPOSE 5000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "wsgi:app"]
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "wsgi:app"]

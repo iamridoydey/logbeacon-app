@@ -9,10 +9,10 @@ from app.services import analyze_service
 
 logger = logging.getLogger(__name__)
 
-bp = Blueprint('analyze', __name__, url_prefix='/analyze')
+bp = Blueprint("analyze", __name__, url_prefix="/analyze")
 
 
-@bp.route('', methods=['POST'])
+@bp.route("", methods=["POST"])
 @require_login_or_api_key
 def analyze():
     data = request.get_json()
@@ -21,7 +21,7 @@ def analyze():
         logger.warning("analyze rejected: missing json")
         raise ValidationError("Missing or invalid JSON format")
 
-    error_log = data.get('error_log')
+    error_log = data.get("error_log")
 
     if not error_log:
         logger.warning("analyze rejected: missing error_log user_id=%s", g.current_user.id)

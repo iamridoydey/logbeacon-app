@@ -112,12 +112,23 @@ services:
     networks:
       - logbeacon
 
+  grafnana-image-renderer:
+    image: grafana/grafana-image-renderer:latest
+    environment:
+      AUTH_TOKEN: gf-render-token
+    networks:
+      - logbeacon
+
   grafana:
     image: grafana/grafana:13.2.2
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}"
       GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_RENDERING_SERVER_URL: http://grafnana-image-renderer:8081/render
+      GF_RENDERING_CALLBACK_URL: http://grafana:3000/
+      GF_SERVER_ROOT_URL: http://localhost:3001
+      GF_RENDERING_RENDERER_TOKEN: gf-render-token
     volumes:
       - grafana_data:/var/lib/grafana
       - ./observability/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
