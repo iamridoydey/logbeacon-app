@@ -2,9 +2,11 @@
 
 LogBeacon helps developers understand error logs and stack traces. Submit an error through the web interface or REST API, and the Flask backend asks a Groq-hosted language model for an explanation and a practical fix. Each analysis is saved with its input/output token counts, response latency, and estimated cost so users can review their history and usage.
 
-This repository contains the Express/EJS frontend, Flask API, database migrations, background-job code, container definitions, and application CI workflows.
+This repository contains the Express/EJS frontend, Flask API, database migrations, background-job code, container definitions, and application CI workflows. It does not create AWS resources and it does not install Kubernetes. Those live in the other two repositories. You can do all day-to-day development here.
 
 ## The LogBeacon repositories
+
+Three repos, three jobs. Start with this one. Open the others only when you are ready to deploy.
 
 | Repository | Responsibility |
 | --- | --- |
@@ -17,6 +19,7 @@ This repository contains the Express/EJS frontend, Flask API, database migration
 ## Contents
 
 - [Features and architecture](#features-and-architecture)
+- [Observability](#observability)
 - [Prerequisites](#prerequisites)
 - [Run locally with Docker Compose](#run-locally-with-docker-compose)
 - [Run the application directly on your machine](#run-the-application-directly-on-your-machine)
@@ -26,15 +29,20 @@ This repository contains the Express/EJS frontend, Flask API, database migration
 - [Tests and development commands](#tests-and-development-commands)
 - [CI and image releases](#ci-and-image-releases)
 - [Troubleshooting and current limitations](#troubleshooting-and-current-limitations)
+- [Contributing](#contributing)
 
 ## Features and architecture
 
+What a user can do:
+
 - Account registration and password-based sign-in.
-- A personal API key returned during registration; the database stores its hash.
+- A personal API key returned during registration. The database stores its hash, never the key itself.
 - Error analysis through Groq, with Markdown solutions displayed in the web UI.
 - A history/dashboard with saved errors, solutions, token usage, and estimated cost.
 - PostgreSQL persistence through SQLAlchemy and Alembic migrations.
 - Redis/RQ job code for emailing expired logs and removing them after successful delivery.
+
+How a request moves. Analysis is synchronous: the HTTP call does not return until Groq has answered and Postgres has committed. The Redis queue is only for the later cleanup email. It is not in the analyze path.
 
 ```mermaid
 flowchart TD
@@ -42,7 +50,7 @@ flowchart TD
     Frontend --> API[Flask API]
     Client[API client] --> API
     API --> Groq[Groq]
-    API --> DB[PostgreSQL]
+    API --> DB[(PostgreSQL)]
     Cleanup[Cleanup command] --> DB
     Cleanup --> Redis[Redis queue]
     Redis --> Worker[RQ worker]
@@ -50,14 +58,15 @@ flowchart TD
     Worker --> DB
 ```
 
-Analysis requests call Groq and save the log and metrics synchronously. RQ is used by the cleanup/email code; it does not process the main analysis request. Cleanup needs a separately started worker and a scheduled invocation.
+Cleanup needs a separately started worker and a scheduled invocation. Starting the web app does not start that worker.
 
 | Component | Implementation |
 | --- | --- |
-| Frontend | Node.js 24, Express 5, EJS, Tailwind CSS 4, `express-session`, `marked`. |
+| Frontend | Node.js 24, Express 5, EJS, Tailwind CSS 4, `express-session`, `marked`, Pino. |
 | Backend | Python, Flask, Flask-SQLAlchemy, Groq SDK, Gunicorn in the runtime image. |
-| Data | PostgreSQL; Alembic owns schema migrations. |
+| Data | PostgreSQL. Alembic owns schema migrations. |
 | Background jobs | Redis and RQ, queue name `logbeacon`. |
+| Observability | OpenTelemetry. Collector, Prometheus, Loki, Tempo, Grafana in Compose. |
 | Validation | Node test runner, ESLint, pytest, Ruff, Trivy, Checkov, SonarQube. |
 
 ### Repository layout
@@ -76,16 +85,56 @@ Analysis requests call Groq and save the log and metrics synchronously. RQ is us
 | `backend/migrations/` | Alembic schema migrations. |
 | `backend/tests/` | Unit and integration tests. |
 | `compose/` | Shared Compose services and development/production definitions. |
+| `compose/observability/` | Collector, Prometheus, Loki, Tempo, and Grafana config. |
 | `.github/workflows/` | Pull-request checks and main-branch image releases. |
+
+## Observability
+
+Compose can run a full metrics, logs, and traces stack next to the app. It is optional for feature work and required if you are changing dashboards or instrumentation.
+
+```mermaid
+flowchart LR
+    Frontend[Express] -->|OTLP :4318| Collector[OTel Collector]
+    Backend[Flask] -->|OTLP :4318| Collector
+    PGExp[postgres-exporter] --> Collector
+    RedisExp[redis-exporter] --> Collector
+    Collector -->|:8889| Prometheus
+    Collector --> Loki
+    Collector --> Tempo
+    Prometheus --> Grafana
+    Loki --> Grafana
+    Tempo --> Grafana
+```
+
+What each box is for:
+
+- **Collector** receives OTLP from both apps and scrapes the two exporters. It is the only thing Prometheus scrapes.
+- **Prometheus** stores numbers: request rate, latency, the custom analyze and save counters.
+- **Loki** stores logs. Query by `{service_name="logbeacon-backend"}`.
+- **Tempo** stores traces. One analyze request is one trace, with child spans for Groq and the database save.
+- **Grafana** is the UI on port `3001`. Datasource uids are `prometheus`, `loki`, and `tempo`. Keep those uids so exported dashboards still bind.
+
+Auto-instrumentation covers HTTP and SQL. It cannot see an empty Groq explanation. These custom metrics exist for that reason:
+
+| Metric | Meaning |
+| --- | --- |
+| `logbeacon_analyze_requests_total` | Valid analyze calls. Label `outcome=success` or `failure`. |
+| `logbeacon_analyze_duration_seconds` | End-to-end analyze time. Buckets include 20s and 60s. |
+| `logbeacon_saving_logs_total` | Persist attempts, from `/log` and from analyze. |
+| `logbeacon_save_logs_duration_seconds` | Time to commit. |
+| `logbeacon_fetching_logs_total` | History requests. |
+| `logbeacon_fetching_logs_duration_seconds` | History latency. Buckets include 2s. |
+
+`OTEL_SERVICE_NAME` must stay `logbeacon-frontend` and `logbeacon-backend`. Dashboards filter on those names.
 
 ## Prerequisites
 
 - Git, Docker Engine/Desktop, and the Docker Compose plugin.
 - A Groq API key and a model ID available to that account.
-- Available local ports `3000`, `5000`, `5434` and `6379` for the Compose setup.
+- Available local ports `3000`, `5000`, `5434`, `6379`. Add `3001` and `9090` if you start the observability file.
 - SMTP credentials if you want to exercise expiry emails.
 
-For host-based development, also install Node.js 24, npm, and Python with `venv` support. The Dockerfile uses Python 3.11; backend CI uses Python 3.12. Dependencies are pinned in `backend/requirements*.txt` and the frontend lockfile.
+For host-based development, also install Node.js 24, npm, and Python with `venv` support. The Dockerfile uses Python 3.11. Backend CI uses Python 3.12. Dependencies are pinned in `backend/requirements*.txt` and the frontend lockfile.
 
 ## Run locally with Docker Compose
 
@@ -117,7 +166,10 @@ SMTP_PORT=587
 SMTP_USER=replace-with-your-smtp-user
 SMTP_PASSWORD=replace-with-your-smtp-password
 FROM_EMAIL=you@example.com
+GRAFANA_ADMIN_PASSWORD=replace-with-a-grafana-password
 ```
+
+The observability variables in `.env.example` already point both apps at `http://otel-collector:4318`. Leave them unless you are debugging the SDK itself.
 
 ### 2. Create a local Compose override
 
@@ -155,7 +207,7 @@ networks:
     driver: bridge
 ```
 
-This is a development configuration. It mounts source code for reloads and intentionally uses development servers. The backend builder's virtual environment is at `/opt/venv`; mounting `/app` does not hide it.
+This is a development configuration. It mounts source code for reloads and intentionally uses development servers. The backend builder's virtual environment is at `/opt/venv`. Mounting `/app` does not hide it.
 
 ### 3. Build, migrate, and start
 
@@ -165,6 +217,7 @@ Run from the repository root in Bash. Define this helper in each terminal where 
 dc() {
   docker compose --env-file compose/.env \
     -f compose/compose.app.yaml \
+    -f compose/compose.observ.yaml \
     -f compose/compose.local.yaml "$@"
 }
 
@@ -177,11 +230,13 @@ dc up -d backend frontend
 dc ps
 ```
 
-The development backend command does not run migrations automatically, so the migration step is required for a new database.
+Drop `-f compose/compose.observ.yaml` if you do not want Grafana. The development backend command does not run migrations automatically, so the migration step is required for a new database.
 
 ### 4. Use the application
 
 Open [http://localhost:3000](http://localhost:3000), register at `/auth/register`, save your API key, and then sign in at `/auth/signin`. Submit a short error at `/analyze` and inspect the saved entry at `/dashboard`.
+
+Grafana, if you started it, is [http://localhost:3001](http://localhost:3001). The user is `admin`. The password is `GRAFANA_ADMIN_PASSWORD`.
 
 Check database connectivity through the API:
 
@@ -213,7 +268,7 @@ Named PostgreSQL and Redis volumes remain after `down`. Use `dc down --volumes` 
 
 ## Run the application directly on your machine
 
-Use this route if you prefer Node/Python processes in your editor. It is an alternative to the full Compose setup; do not run both frontends/backends on the same ports.
+Use this route if you prefer Node/Python processes in your editor. It is an alternative to the full Compose setup. Do not run both frontends or backends on the same ports.
 
 ### Start local data services
 
@@ -246,7 +301,7 @@ python -m pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `backend/.env`: replace every descriptive placeholder, set the Groq credentials and secrets, and use these local connection/configuration values:
+Edit `backend/.env`. Replace every descriptive placeholder, set the Groq credentials and secrets, and use these local connection values:
 
 ```dotenv
 DATABASE_URL=postgresql://logbeacon:logbeacon@localhost:5432/logbeacon_db
@@ -259,7 +314,7 @@ PRICE_PER_MILLION_TOKENS=0.05
 SMTP_PORT=587
 ```
 
-The example file contains explanatory strings in numeric fields; those must become valid numbers.
+The example file contains explanatory strings in numeric fields. Those must become valid numbers.
 
 ```bash
 alembic upgrade head
@@ -275,7 +330,7 @@ cd frontend
 npm ci
 ```
 
-Create `frontend/.env` with the following contents; the checked-in frontend example is empty:
+Create `frontend/.env`. The checked-in frontend example is empty:
 
 ```dotenv
 PORT=3000
@@ -290,29 +345,36 @@ npm run dev
 
 Run `npm run watch:css` in a third terminal when editing Tailwind styles. Use `docker stop logbeacon-local-postgres logbeacon-local-redis` to stop the data services, and `docker start` with the same names to resume them.
 
+This path has no Collector and no Grafana. Traces and metrics are dropped unless you point `OTEL_EXPORTER_OTLP_ENDPOINT` at a Collector you started yourself.
+
 ## Configuration
 
-Backend variables are read by `backend/app/config.py`; frontend variables are read by `frontend/src/config.js`.
+Backend variables are read by `backend/app/config.py`. Frontend variables are read by `frontend/src/config.js`.
 
 | Variable | Purpose / default |
 | --- | --- |
-| `DATABASE_URL` | SQLAlchemy PostgreSQL connection URL; required. |
+| `DATABASE_URL` | SQLAlchemy PostgreSQL connection URL. Required. |
 | `REDIS_URL` | Redis connection URL for cleanup/RQ. |
-| `SECRET_KEY` | Flask session-signing secret; required for sign-in. |
-| `GROQ_API_KEY` | Groq credential; required when importing the Groq client. |
+| `SECRET_KEY` | Flask session-signing secret. Required for sign-in. |
+| `GROQ_API_KEY` | Groq credential. Required when importing the Groq client. |
 | `GROQ_MODEL` | Model ID used for real analysis requests. |
-| `ALLOWED_ORIGINS` | Comma-separated CORS origins for `/analyze`; avoid spaces around entries. |
-| `LOG_RETENTION_DAYS` | Expiry age used by cleanup; defaults to `7`. It does not schedule cleanup. |
-| `MAX_ERROR_LENGTH` | Maximum error text length in characters; defaults to `500`. |
-| `PRICE_PER_MILLION_TOKENS` | Single rate applied to combined input/output tokens; defaults to `0.05`. |
-| `SQLALCHEMY_TRACK_MODIFICATIONS` | Passed through from the environment as a string in the current code; boolean parsing is not implemented. |
-| `SMTP_HOST`, `SMTP_PORT` | SMTP endpoint; port defaults to `587`. The job uses STARTTLS. |
+| `ALLOWED_ORIGINS` | Comma-separated CORS origins for `/analyze`. Avoid spaces around entries. |
+| `LOG_RETENTION_DAYS` | Expiry age used by cleanup. Defaults to `7`. It does not schedule cleanup. |
+| `MAX_ERROR_LENGTH` | Maximum error text length in characters. Defaults to `500`. |
+| `PRICE_PER_MILLION_TOKENS` | Single rate applied to combined input/output tokens. Defaults to `0.05`. |
+| `SQLALCHEMY_TRACK_MODIFICATIONS` | Passed through from the environment as a string. Boolean parsing is not implemented. |
+| `SMTP_HOST`, `SMTP_PORT` | SMTP endpoint. Port defaults to `587`. The job uses STARTTLS. |
 | `SMTP_USER`, `SMTP_PASSWORD`, `FROM_EMAIL` | SMTP login and sender for expiry emails. |
-| `PORT` | Express port; defaults to `3000`. Keep `3000` with the existing Compose port mapping. |
-| `FLASK_API_URL` | Backend URL as seen by Express; defaults to `http://localhost:5000`. Compose sets `http://backend:5000`. |
+| `PORT` | Express port. Defaults to `3000`. |
+| `FLASK_API_URL` | Backend URL as seen by Express. Defaults to `http://localhost:5000`. Compose sets `http://backend:5000`. |
 | `SESSION_SECRET` | Express session-signing secret. |
+| `OTEL_SERVICE_NAME` | `logbeacon-frontend` or `logbeacon-backend`. Do not rename. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Collector address. Compose uses `http://otel-collector:4318`. |
+| `OTEL_TRACES_EXPORTER`, `OTEL_METRICS_EXPORTER`, `OTEL_LOGS_EXPORTER` | Set all three to `otlp` or that signal is dropped. |
+| `OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED` | `true` ships Python `logging` calls to the Collector. |
+| `GRAFANA_ADMIN_PASSWORD` | Local Grafana password. User is `admin`. |
 
-Cost is an estimate using one configured rate, not a provider billing record or a model-specific input/output price calculation. Error text is sent to Groq; remove credentials and sensitive log content before submission.
+Cost is an estimate using one configured rate, not a provider billing record. Error text is sent to Groq. Remove credentials and sensitive log content before submission.
 
 ## API
 
@@ -321,17 +383,23 @@ Local API base URL: `http://localhost:5000`.
 | Method | Path | Authentication | Purpose |
 | --- | --- | --- | --- |
 | `GET` | `/health` | None | PostgreSQL connectivity check. |
-| `POST` | `/auth/register` | None | Register using `username`, `email`, `password` |
-| `POST` | `/auth/signin` | None | Sign in with `username` and `password`; sets a Flask session cookie. |
+| `POST` | `/auth/register` | None | Register using `username`, `email`, `password`. Returns an API key once. |
+| `POST` | `/auth/signin` | None | Sign in with `username` and `password`. Sets a Flask session cookie. |
 | `POST` | `/auth/signout` | Session if present | Remove the user ID from the Flask session. |
-| `POST` | `/analyze` | Flask session **or** Bearer API key | Analyze `{ "error_log": "..." }`; returns HTTP `201` on success. |
+| `POST` | `/analyze` | Flask session **or** Bearer API key | Analyze `{ "error_log": "..." }`. Returns HTTP `201` on success. |
 | `GET` | `/log` | Flask session | Return the signed-in user's analyzed entries and totals. |
 | `POST` | `/log` | Flask session | Save an error/solution pair supplied by the caller. |
 
 Example using the API key returned at registration:
 
+```bash
+curl -s -X POST http://localhost:5000/analyze \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"error_log": "KeyError: missing config"}'
+```
 
-The result includes `id`, `error_solution`, `input_tokens`, `output_tokens`, `latency_ms`, and `cost`. Bearer authentication currently applies to `/analyze`; `/log` requires the session cookie. Registration does not sign the user in automatically.
+The result includes `id`, `error_solution`, `input_tokens`, `output_tokens`, `latency_ms`, and `cost`. Bearer authentication currently applies to `/analyze`. `/log` requires the session cookie. Registration does not sign the user in automatically.
 
 ## Background cleanup and email
 
@@ -352,7 +420,7 @@ dc run --rm --no-deps backend python -c \
 
 For host-based development, run the equivalent commands from `backend/` with the virtual environment active, using `redis://localhost:6379/0` for the worker.
 
-To automate expiry, arrange a recurring cleanup invocation and keep a worker running. The cleanup command selects logs older than `LOG_RETENTION_DAYS`; the worker emails each log and then deletes it. If SMTP delivery raises an error, deletion does not proceed. Do not repeatedly enqueue the same backlog without checking the queue: the cleanup function does not deduplicate outstanding jobs.
+To automate expiry, arrange a recurring cleanup invocation and keep a worker running. The cleanup command selects logs older than `LOG_RETENTION_DAYS`. The worker emails each log and then deletes it. If SMTP delivery raises an error, deletion does not proceed. Do not repeatedly enqueue the same backlog without checking the queue: the cleanup function does not deduplicate outstanding jobs.
 
 ## Tests and development commands
 
@@ -385,23 +453,45 @@ python -m pytest
 ruff check .
 ```
 
-The tests mock the external operations they cover; they are not an end-to-end validation of Groq or SMTP. Setting `DATABASE_URL` alone does not change the fixture's hard-coded test database.
+The tests mock the external operations they cover. They are not an end-to-end validation of Groq or SMTP. Setting `DATABASE_URL` alone does not change the fixture's hard-coded test database.
 
-# CI and image releases
-## Logbeacon App Ci on PR
-![Logbeacon App Ci on PR](diagrams/ci/logbeacon-app-ci-pr.png)
+## CI and image releases
 
+A pull request proves the change is safe. A merge publishes images. The two workflows are split on purpose: a PR cannot push to ECR, so a failing branch cannot overwrite a released tag.
 
-## Logbeacon App Ci on Merge
-![Logbeacon App Ci on Merge](diagrams/ci/logbeacon-app-ci-merge.png)
+### Pull request
 
+```mermaid
+flowchart TD
+    PR[Pull request to main] --> FE[Frontend: npm test, ESLint]
+    PR --> BE[Backend: pytest, Ruff]
+    FE --> TrivyF[Trivy filesystem scan]
+    BE --> TrivyB[Trivy filesystem scan]
+    TrivyF --> Docker[Checkov on both Dockerfiles]
+    TrivyB --> Docker
+    Docker --> Sonar[SonarQube scan and quality gate]
+    Sonar --> Images[Build frontend and backend images]
+    Images --> Crit[Trivy image scan, fail on CRITICAL]
+    Crit --> Stop[Done. No push]
+```
+
+### Merge to main
+
+```mermaid
+flowchart TD
+    Merge[Push to main] --> Env[Environment app-release-production]
+    Env --> Build[Build linux/amd64 images]
+    Build --> Scan[Trivy, fail on CRITICAL]
+    Scan --> ECR[Push short-SHA tags to ECR]
+    ECR --> Updater[Image Updater in the k8s repo opens a PR]
+```
 
 | Workflow | Trigger | Behavior |
 | --- | --- | --- |
-| `app-ci-pr.yaml` | Pull request to `main`, or manual dispatch | Frontend/backend tests and linting; Trivy filesystem scans; Checkov Dockerfile scans; SonarQube analysis/quality gates; build and scan both images. |
+| `app-ci-pr.yaml` | Pull request to `main`, or manual dispatch | Frontend/backend tests and linting. Trivy filesystem scans. Checkov Dockerfile scans. SonarQube analysis and quality gates. Build and scan both images. |
 | `app-ci-merge.yaml` | Push to `main`, or manual dispatch | Build Linux/AMD64 images, fail on critical image findings, and push short-commit-SHA tags to ECR. Uses the `app-release-production` environment. |
 
-Current workflows do not define separate `dev`/`qa` pipelines and do not run a Docker Compose integration stack. The release workflow does not repeat all PR tests; protect `main` with the required PR checks.
+Current workflows do not define separate `dev`/`qa` pipelines and do not run a Docker Compose integration stack. The release workflow does not repeat all PR tests. Protect `main` with the required PR checks.
 
 Configure the following for AWS-backed CI:
 
@@ -409,11 +499,11 @@ Configure the following for AWS-backed CI:
 | --- | --- |
 | `AWS_REGION` | GitHub Actions variable, matching the AWS deployment. |
 | `AWS_ACCOUNT_ID` | GitHub Actions secret. |
-| `logbeacon-app-ci-role` | IAM role created by the infrastructure bootstrap root; trust must match the workflow's actual OIDC subject. |
-| `app-release-production` | GitHub environment used for releases; configure deployment rules as needed. |
+| `logbeacon-app-ci-role` | IAM role created by the infrastructure bootstrap root. Trust must match the workflow's actual OIDC subject. |
+| `app-release-production` | GitHub environment used for releases. Configure deployment rules as needed. |
 | `sonarqube-ci-cred` | AWS Secrets Manager JSON containing `SONAR_HOST_URL` and `SONAR_TOKEN`. |
 
-The IAM role needs ECR access and access to the SonarQube secret, including `kms:Decrypt` for its customer-managed encryption key. The checked-in app CI role has the Secrets Manager read policy but does not attach a corresponding KMS decrypt policy; account administrators must resolve that before using the encrypted secret.
+The IAM role needs ECR access and access to the SonarQube secret, including `kms:Decrypt` for its customer-managed encryption key. The checked-in app CI role has the Secrets Manager read policy but does not attach a corresponding KMS decrypt policy. Account administrators must resolve that before using the encrypted secret.
 
 Images are published to `<account>.dkr.ecr.<region>.amazonaws.com/logbeacon/frontend:<short-sha>` and the equivalent `logbeacon/backend` repository. The application pipeline does not directly deploy Kubernetes. Argo CD Image Updater is configured in the Kubernetes repository to propose image-tag changes through GitHub pull requests.
 
@@ -424,7 +514,10 @@ Images are published to `<account>.dkr.ecr.<region>.amazonaws.com/logbeacon/fron
 | Table does not exist | Run `alembic upgrade head` against the same database used by the backend. |
 | Analysis fails | Check the Groq key, model ID, quota, outbound connectivity, and `MAX_ERROR_LENGTH`. |
 | Database authentication fails after editing `.env` | Existing PostgreSQL volumes retain their original credentials. Changing environment variables does not change an initialized database password. |
-| Old logs remain | Run both cleanup and an RQ worker; set `LOG_RETENTION_DAYS`,  verify SMTP delivery. |
+| Old logs remain | Run both cleanup and an RQ worker. Set `LOG_RETENTION_DAYS`. Verify SMTP delivery. |
+| Frontend cannot find `pino` | The anonymous `node_modules` volume is stale. `npm install` inside the container, or recreate it. |
+| Grafana has no `logbeacon_*` metrics | Confirm `OTEL_METRICS_EXPORTER=otlp` and that Prometheus is scraping Collector `:8889`, not the Flask port. |
+| Loki has no frontend logs | Pino writes stdout unless `pino-opentelemetry-transport` or the Node register hook is active. |
 
 Before a public multi-replica deployment, address the current in-memory Express session store and `secure: false` cookie setting, remove the registration route's request-body logging, sanitize rendered model-generated Markdown, and review sign-out/session handling. These are visible implementation limitations, not features supplied by the deployment manifests.
 
