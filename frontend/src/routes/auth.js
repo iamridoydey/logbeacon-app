@@ -134,14 +134,20 @@ router.post("/signin", redirectIfSignedIn, async (req, res, next) => {
       });
     }
 
+    // append so Express-session can still write its own connect.sid cookie.
+    // setHeader would replace the header and drop the Express session.
     if (setCookie) {
-      res.setHeader("Set-Cookie", setCookie);
+      res.append("Set-Cookie", setCookie);
     }
 
     req.session.isSignedIn = true;
     logger.info({ username }, "flow=signin user signed in");
 
-    return res.redirect("/dashboard");
+    // Save the session before redirecting so the cookie is written.
+    return req.session.save((err) => {
+      if (err) return next(err);
+      res.redirect("/dashboard");
+    });
   } catch (err) {
     logger.error({ err }, "flow=signin backend call failed");
     next(err);
