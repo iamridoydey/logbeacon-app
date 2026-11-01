@@ -45,11 +45,10 @@ jobs:
           ignore-unfixed: true
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: "trivy-frontend-results.sarif"
-          category: trivy-frontend # each upload needs its own category
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -72,21 +71,19 @@ jobs:
 
       - name: Checkov Frontend Dockerfile Scan
         id: checkov-frontend
-        if: always() # run even if tests or lint failed
         uses: bridgecrewio/checkov-action@master
         with:
           directory: frontend
           output_format: sarif
-          output_file_path: checkov-frontend-results
+          output_file_path: checkov-frontend-results.sarif
           framework: dockerfile
           soft_fail: true
 
       - name: Upload frontend Checkov results to GitHub
         uses: github/codeql-action/upload-sarif@v4
-        if: always() && hashFiles('checkov-frontend-results/**') != ''
+        if: always() && hashFiles('checkov-frontend-results.sarif') != ''
         with:
-          sarif_file: checkov-frontend-results
-          category: checkov-frontend
+          sarif_file: checkov-frontend-results.sarif
 
   backend-checks:
     runs-on: ubuntu-latest
@@ -105,11 +102,6 @@ jobs:
           --health-timeout=5s
           --health-retries=5
 
-      redis:
-        image: redis:8.0-alpine
-        ports:
-          - 6379:6379
-
     steps:
       - name: Checkout app repository
         uses: actions/checkout@v7
@@ -127,11 +119,10 @@ jobs:
           ignore-unfixed: true
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: "trivy-backend-results.sarif"
-          category: trivy-backend
 
       - name: Setup Python
         uses: actions/setup-python@v7
@@ -174,21 +165,19 @@ jobs:
 
       - name: Checkov Backend Dockerfile Scan
         id: checkov-backend
-        if: always()
         uses: bridgecrewio/checkov-action@master
         with:
           directory: backend
           output_format: sarif
-          output_file_path: checkov-backend-results 
+          output_file_path: checkov-backend-results.sarif
           framework: dockerfile
           soft_fail: true
 
       - name: Upload backend Checkov results to GitHub
         uses: github/codeql-action/upload-sarif@v4
-        if: always() && hashFiles('checkov-backend-results/**') != '' 
+        if: always() && hashFiles('checkov-backend-results.sarif') != ''
         with:
-          sarif_file: checkov-backend-results
-          category: checkov-backend
+          sarif_file: checkov-backend-results.sarif
 
   sonarqube-analysis:
     runs-on: ubuntu-latest

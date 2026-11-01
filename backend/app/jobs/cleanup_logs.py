@@ -4,8 +4,8 @@ from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 
 from app.config import Config
+from app.observability import execution_counter, tracer
 from app.repositories import log_repository, user_repository
-from app.observability import tracer, execution_counter
 
 logger = logging.getLogger(__name__)
 
@@ -45,67 +45,66 @@ def cleanup_logs(log_id):
     try:
         app = create_app()
 
-        with app.app_context():
-            with tracer.start_as_current_span("cleanup_logs") as span:
-                span.set_attribute("logbeacon.flow", "cleanup_logs")
-                span.set_attribute("log.id", log_id)
+        with app.app_context(), tracer.start_as_current_span("cleanup_logs") as span:
+            span.set_attribute("logbeacon.flow", "cleanup_logs")
+            span.set_attribute("log.id", log_id)
 
-                log = log_repository.find_by_id(log_id)
+            log = log_repository.find_by_id(log_id)
 
-                if not log:
-                    outcome = "skipped"
-                    logger.info("flow=cleanup_logs skipped missing log_id=%s", log_id)
-                    return
+            if not log:
+                outcome = "skipped"
+                logger.info("flow=cleanup_logs skipped missing log_id=%s", log_id)
+                return
 
-                user = user_repository.find_by_id(log.user_id)
+            user = user_repository.find_by_id(log.user_id)
 
-                if not user:
-                    outcome = "skipped"
-                    logger.warning(
-                        "flow=cleanup_logs skipped missing user log_id=%s user_id=%s",
-                        log_id,
-                        log.user_id,
-                    )
-                    return
-
-                # Safety check: never delete a log younger than the retention period,
-                # even if this job runs early (manual run, bug, config change).
-                # Log.created_at is a plain TIMESTAMP with no timezone, so compare
-                # against a naive UTC time (this assumes the database clock is UTC).
-                cutoff = (
-                    datetime.now(timezone.utc) - timedelta(days=Config.LOG_RETENTION_DAYS)
-                ).replace(tzinfo=None)
-
-                if log.created_at > cutoff:
-                    outcome = "skipped"
-                    logger.warning(
-                        "flow=cleanup_logs skipped, log not old enough "
-                        "log_id=%s created_at=%s",
-                        log_id,
-                        log.created_at,
-                    )
-                    return
-
-                span.set_attribute("enduser.id", str(user.id))
-
-                logger.info(
-                    "flow=cleanup_logs processing log_id=%s user_id=%s",
+            if not user:
+                outcome = "skipped"
+                logger.warning(
+                    "flow=cleanup_logs skipped missing user log_id=%s user_id=%s",
                     log_id,
-                    user.id,
+                    log.user_id,
                 )
+                return
 
-                with tracer.start_as_current_span("send_expiry_email"):
-                    _send_email(user.email, log.error_log, log.error_solution)
+            # Safety check: never delete a log younger than the retention period,
+            # even if this job runs early (manual run, bug, config change).
+            # Log.created_at is a plain TIMESTAMP with no timezone, so compare
+            # against a naive UTC time (this assumes the database clock is UTC).
+            cutoff = (
+                datetime.now(timezone.utc) - timedelta(days=Config.LOG_RETENTION_DAYS)
+            ).replace(tzinfo=None)
 
-                with tracer.start_as_current_span("delete_log"):
-                    log_repository.delete(log)
-                    log_repository.commit()
-
-                outcome = "success"
-                logger.info(
-                    "flow=cleanup_logs expiry email sent and log deleted log_id=%s",
+            if log.created_at > cutoff:
+                outcome = "skipped"
+                logger.warning(
+                    "flow=cleanup_logs skipped, log not old enough "
+                    "log_id=%s created_at=%s",
                     log_id,
+                    log.created_at,
                 )
+                return
+
+            span.set_attribute("enduser.id", str(user.id))
+
+            logger.info(
+                "flow=cleanup_logs processing log_id=%s user_id=%s",
+                log_id,
+                user.id,
+            )
+
+            with tracer.start_as_current_span("send_expiry_email"):
+                _send_email(user.email, log.error_log, log.error_solution)
+
+            with tracer.start_as_current_span("delete_log"):
+                log_repository.delete(log)
+                log_repository.commit()
+
+            outcome = "success"
+            logger.info(
+                "flow=cleanup_logs expiry email sent and log deleted log_id=%s",
+                log_id,
+            )
 
     except Exception:
         logger.exception("flow=cleanup_logs failed log_id=%s", log_id)
