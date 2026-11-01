@@ -6,7 +6,7 @@ from flask import jsonify
 
 from app.config import Config
 from app.errors import ExternalServiceError, ValidationError
-from app.observability import tracer, make_duration_histogram, execution_counter
+from app.observability import execution_counter, make_duration_histogram, tracer
 from app.queue import queue
 from app.services import log_service
 from app.services.groq_service import ask_groq

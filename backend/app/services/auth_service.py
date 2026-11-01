@@ -9,7 +9,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.errors import AppError, AuthenticationError, ConflictError
 from app.models import User
-from app.observability import tracer, make_duration_histogram
+from app.observability import make_duration_histogram, tracer
 from app.repositories import user_repository
 
 logger = logging.getLogger(__name__)

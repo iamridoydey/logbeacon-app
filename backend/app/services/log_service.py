@@ -5,9 +5,9 @@ from flask import jsonify
 from opentelemetry.trace import Status, StatusCode
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.models import Log, Analysis
-from app.observability import tracer, make_duration_histogram, execution_counter
-from app.repositories import log_repository, analysis_repository
+from app.models import Analysis, Log
+from app.observability import execution_counter, make_duration_histogram, tracer
+from app.repositories import analysis_repository, log_repository
 
 logger = logging.getLogger(__name__)
 
